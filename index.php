@@ -278,6 +278,15 @@ ksort($sidebarMenu);
                 </div>
             </div>
         </div>
+
+        <!-- Show Results button — mobile only, sticks to bottom of drawer -->
+        <div class="sidebar-apply-bar">
+            <button id="sidebarApplyBtn" class="sidebar-apply-btn i18n"
+                    data-el="Εμφάνιση Αποτελεσμάτων" data-en="Show Results"
+                    aria-label="Apply filters and close">
+                Εμφάνιση Αποτελεσμάτων
+            </button>
+        </div>
     </aside>
 
     <main class="products-view-zone">

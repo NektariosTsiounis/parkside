@@ -15,21 +15,26 @@ const leftSidebar    = document.getElementById('leftSidebar');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
 const mobileFilterBtn= document.getElementById('mobileFilterBtn');
 const sidebarCloseBtn= document.getElementById('sidebarCloseBtn');
+const sidebarApplyBtn= document.getElementById('sidebarApplyBtn');
+const sidebarApplyBar= document.querySelector('.sidebar-apply-bar');
 
 function openSidebar() {
     leftSidebar.classList.add('open');
     sidebarOverlay.classList.add('open');
+    if (sidebarApplyBar) sidebarApplyBar.classList.add('open');
     document.body.style.overflow = 'hidden';
 }
 function closeSidebar() {
     leftSidebar.classList.remove('open');
     sidebarOverlay.classList.remove('open');
+    if (sidebarApplyBar) sidebarApplyBar.classList.remove('open');
     document.body.style.overflow = '';
 }
 
 mobileFilterBtn.addEventListener('click', openSidebar);
 sidebarCloseBtn.addEventListener('click', closeSidebar);
 sidebarOverlay.addEventListener('click', closeSidebar);
+if (sidebarApplyBtn) sidebarApplyBtn.addEventListener('click', closeSidebar);
 
 // ── Language ──────────────────────────────────────────────────────────────────────────────────────
 let currentLang = 'el';
@@ -253,8 +258,9 @@ function parsePriceTag(raw) {
 
     if (!price) return '';
 
-    const dateHtml   = date    ? `<em class="ph-date">${date}</em>` : '';
-    const countryHtml= country ? `<em class="ph-country">${country}</em>` : '';
+    const flag        = COUNTRY_FLAGS[country] || '';
+    const dateHtml    = date    ? `<em class="ph-date">${date}</em>` : '';
+    const countryHtml = country ? `<em class="ph-country">${flag ? flag + '\u00a0' : ''}${country}</em>` : '';
 
     return `<span class="ph-price">${price} €</span>${dateHtml}${countryHtml}`;
 }
