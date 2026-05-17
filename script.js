@@ -16,7 +16,7 @@ const sidebarOverlay = document.getElementById('sidebarOverlay');
 const mobileFilterBtn= document.getElementById('mobileFilterBtn');
 const sidebarCloseBtn= document.getElementById('sidebarCloseBtn');
 const sidebarApplyBtn= document.getElementById('sidebarApplyBtn');
-const sidebarApplyBar= document.querySelector('.sidebar-apply-bar');
+const sidebarApplyBar= document.getElementById('sidebarApplyBar');
 
 function openSidebar() {
     leftSidebar.classList.add('open');
@@ -258,9 +258,8 @@ function parsePriceTag(raw) {
 
     if (!price) return '';
 
-    const flag        = COUNTRY_FLAGS[country] || '';
     const dateHtml    = date    ? `<em class="ph-date">${date}</em>` : '';
-    const countryHtml = country ? `<em class="ph-country">${flag ? flag + '\u00a0' : ''}${country}</em>` : '';
+    const countryHtml = country ? `<em class="ph-country">${country}</em>` : '';
 
     return `<span class="ph-price">${price} €</span>${dateHtml}${countryHtml}`;
 }
