@@ -26,17 +26,10 @@ function formatDate($raw) {
     return $raw;
 }
 
-// Resolve image path from CSV value.
-// Rules:
-//   - empty              → default fallback
-//   - http/https URL     → use as-is
-//   - anything else      → treat as filename, build "Products/{name}.webp"
-//     If that file doesn't exist on disk, fall back to default.
 function resolveImage($raw, $default) {
     $raw = trim($raw, " \t\n\r\0\x0B\"");
     if (empty($raw)) return $default;
     if (strpos($raw, 'http://') === 0 || strpos($raw, 'https://') === 0) return $raw;
-    // Build webp path
     $path = 'Products/' . $raw . '.webp';
     return file_exists($path) ? $path : $default;
 }
@@ -57,10 +50,7 @@ if (file_exists($csvFile)) {
             $desc          = isset($data[3]) ? trim($data[3], "\"") : '';
             $specs         = isset($data[4]) ? trim($data[4], "\"") : '';
 
-            // col[5] = Image_URL (filename without extension → Products/{name}.webp)
-            $finalImage  = resolveImage(isset($data[5]) ? $data[5] : '', $defaultImage);
-
-            // col[13] = second_image (same rule)
+            $finalImage  = resolveImage(isset($data[5])  ? $data[5]  : '', $defaultImage);
             $secondImage = resolveImage(isset($data[13]) ? $data[13] : '', '');
 
             $mainCat   = isset($data[6]) && !empty(trim($data[6])) ? trim($data[6], " \t\n\r\0\x0B\"") : 'Γενικά';
@@ -132,14 +122,14 @@ ksort($sidebarMenu);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parkside Κατάλογος Προϊόντων</title>
+    <title>Parkside Tool Catalog</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header class="main-header">
     <div class="header-content">
-        <div class="logo-area"><h1><span>PARKSIDE</span> Fan Catalog</h1></div>
+        <div class="logo-area"><h1><span>PARKSIDE</span> Tool Catalog</h1></div>
         <div class="search-bar"><input type="text" id="searchInput" placeholder="Αναζήτηση προϊόντος..."></div>
     </div>
 </header>
@@ -234,7 +224,6 @@ ksort($sidebarMenu);
                 <div class="card-img-holder">
                     <img src="<?= htmlspecialchars($product['image']) ?>" alt="<?= htmlspecialchars($product['title']) ?>" loading="lazy">
                 </div>
-
                 <div class="card-body-holder">
                     <h3 class="card-product-title"><?= htmlspecialchars($product['title']) ?></h3>
                     <div class="card-price-block">
@@ -244,17 +233,13 @@ ksort($sidebarMenu);
                                     <span class="was-price"><?= htmlspecialchars($product['price']) ?> €</span>
                                     <span class="now-price"><?= htmlspecialchars($product['lidl_plus']) ?> €</span>
                                 </p>
-                                <?php if ($product['date']): ?>
-                                    <span class="price-date"><?= htmlspecialchars($product['date']) ?></span>
-                                <?php endif; ?>
+                                <?php if ($product['date']): ?><span class="price-date"><?= htmlspecialchars($product['date']) ?></span><?php endif; ?>
                             </div>
                             <span class="l-plus-badge">💳 Lidl Plus</span>
                         <?php else: ?>
                             <div class="price-date-row">
                                 <p class="card-price"><?= htmlspecialchars($product['price']) ?> €</p>
-                                <?php if ($product['date']): ?>
-                                    <span class="price-date"><?= htmlspecialchars($product['date']) ?></span>
-                                <?php endif; ?>
+                                <?php if ($product['date']): ?><span class="price-date"><?= htmlspecialchars($product['date']) ?></span><?php endif; ?>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -267,34 +252,37 @@ ksort($sidebarMenu);
 
 </div>
 
-<!-- Modal -->
-<div id="productModal" class="custom-modal-backdrop" aria-hidden="true">
+<!-- ══ Modal ══ -->
+<div id="productModal" class="custom-modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="custom-modal-window">
-        <button class="custom-modal-close">&times;</button>
+        <button class="custom-modal-close" aria-label="Κλείσιμο">&times;</button>
+
         <div class="custom-modal-wrapper">
+
+            <!-- LEFT: image -->
             <div class="custom-modal-media">
-                <!-- Main image (clickable to switch) -->
                 <img id="modalImage" src="" alt="" loading="lazy">
-                <!-- Thumbnail strip: shown only when second_image exists -->
                 <div id="modalThumbs" class="modal-thumbs" style="display:none;">
                     <img id="modalThumb1" src="" alt="Εικόνα 1" class="modal-thumb active" data-idx="0">
                     <img id="modalThumb2" src="" alt="Εικόνα 2" class="modal-thumb" data-idx="1">
                 </div>
             </div>
+
+            <!-- RIGHT: info -->
             <div class="custom-modal-info">
                 <div class="custom-modal-crumbs" id="modalBreadcrumbs"></div>
                 <h2 id="modalTitle"></h2>
+
                 <div class="custom-modal-pricing">
-                    <div class="price-date-row">
-                        <p id="modalPrice" class="modal-price-output"></p>
-                        <span id="modalDate" class="price-date modal-price-date"></span>
-                    </div>
+                    <p id="modalPrice" class="modal-price-output"></p>
+                    <span id="modalDate" class="price-date modal-price-date" style="display:none;"></span>
                     <p id="modalLidlBadge" class="l-plus-badge" style="display:none;">💳 Lidl Plus</p>
                 </div>
+
                 <p id="modalDescription" class="modal-body-description"></p>
 
                 <div id="modalLidlHistory" class="modal-extra-section" style="display:none;">
-                    <h4>💳 Ιστορικό Lidl Plus Προσφορών</h4>
+                    <h4>💳 Ιστορικό Lidl Plus</h4>
                     <div id="modalLidlHistoryTags" class="modal-tags-container"></div>
                 </div>
 
@@ -307,7 +295,9 @@ ksort($sidebarMenu);
                     <h4>Τεχνικά Χαρακτηριστικά</h4>
                     <ul id="modalSpecsList"></ul>
                 </div>
+
                 <div id="modalYoutube" class="modal-extra-section" style="display:none;">
+                    <h4>Video</h4>
                     <a id="modalYoutubeLink" href="" target="_blank" rel="noopener">📺 Δείτε το Video στο YouTube</a>
                 </div>
             </div>
@@ -321,8 +311,7 @@ ksort($sidebarMenu);
         <span class="disclaimer-icon">⚠️</span>
         <p>
             <strong>Ανεξάρτητος Κατάλογος.</strong>
-            Αυτός ο κατάλογος δημιουργήθηκε και συντηρείται από ιδιώτη χωρίς καμία σχέση, συνεργασία ή χορηγία
-            από την <strong>Parkside</strong>, τη <strong>Lidl</strong> ή οποιαδήποτε θυγατρική τους εταιρεία.
+            Αυτός ο κατάλογος δημιουργήθηκε και συντηρείται από ιδιώτη χωρίς καμία σχέση, συνεργασία ή χορηγία από την <strong>Parkside</strong>, τη <strong>Lidl</strong> ή οποιαδήποτε θυγατρική τους εταιρεία.
             Όλα τα εμπορικά σήματα, λογότυπα και ονόματα προϊόντων ανήκουν στους αντίστοιχους κατόχους τους.
             Οι τιμές και οι πληροφορίες ενδέχεται να μην είναι πάντα ενημερωμένες — πάντα επαληθεύετε στο κατάστημα.
         </p>
