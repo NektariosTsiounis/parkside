@@ -216,15 +216,12 @@ function setModalImage(idx) {
 
 // Country code → flag emoji map
 const COUNTRY_FLAGS = { GR: '🇬🇷', CY: '🇨🇾', DE: '🇩🇪', AT: '🇦🇹', NL: '🇳🇱', BE: '🇧🇪', PL: '🇵🇱' };
-
-// Known country codes for detection
 const KNOWN_COUNTRIES = new Set(Object.keys(COUNTRY_FLAGS));
 
 /**
  * Parses a price history token.
  * Format: price_date_COUNTRY  (e.g. "79_17/5/26_GR")
- * Reads from the END using pop() so extra underscores never duplicate country.
- * Country and date are both optional.
+ * Pops country and date from the END so they never appear twice.
  */
 function parsePriceTag(raw) {
     raw = (raw || '').trim();
@@ -234,23 +231,23 @@ function parsePriceTag(raw) {
 
     const parts = raw.split('_');
 
-    // Detect country: last segment if it matches a known 2-letter code
+    // Pop country from the end (must be exactly a 2-letter known code)
     let country = '';
-    if (parts.length >= 2) {
+    if (parts.length >= 1) {
         const last = (parts[parts.length - 1] || '').trim().toUpperCase();
-        if (KNOWN_COUNTRIES.has(last) || /^[A-Z]{2}$/.test(last)) {
+        if (KNOWN_COUNTRIES.has(last)) {
             country = last;
-            parts.pop();
+            parts.pop(); // remove it so it doesn't appear in price
         }
     }
 
-    // Detect date: new last segment if it looks like a date (contains /)
+    // Pop date from the new end (contains a /)
     let date = '';
-    if (parts.length >= 2) {
+    if (parts.length >= 1) {
         const maybeDate = (parts[parts.length - 1] || '').trim();
         if (maybeDate.includes('/')) {
             date = maybeDate;
-            parts.pop();
+            parts.pop(); // remove it so it doesn't appear in price
         }
     }
 
