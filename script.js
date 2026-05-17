@@ -24,22 +24,16 @@ function applyLanguage(lang) {
     minPriceInput.placeholder = isEN ? 'From' : 'Από';
     maxPriceInput.placeholder = isEN ? 'To' : 'Έως';
 
-    // ✔ KEY FIX: only update the .i18n-label span, never the button/element itself.
-    // This preserves arrow <span> siblings inside category buttons.
     document.querySelectorAll('.i18n').forEach(el => {
         const txt = el.getAttribute(isEN ? 'data-en' : 'data-el');
         if (txt === null) return;
-        // If the element has a dedicated label span, update only that.
         const labelSpan = el.querySelector('.i18n-label');
         if (labelSpan) {
             labelSpan.textContent = txt;
         } else {
-            // Safe to replace textContent only when there are no child elements
-            // (e.g. plain <p>, <span>, <h3> without arrow children).
             if (el.children.length === 0) {
                 el.textContent = txt;
             } else {
-                // Has child elements (e.g. arrow spans) — update first text node only.
                 for (const node of el.childNodes) {
                     if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
                         node.textContent = txt + ' ';
@@ -101,15 +95,9 @@ allCards.forEach(card => {
     });
 });
 
-// ── Filter (rAF-batched for smooth 60fps) ───────────────────────────────────────────────────────
-/**
- * Instead of toggling display on each card synchronously,
- * we batch all DOM writes into a single rAF callback.
- * This avoids mid-frame layout thrashing and keeps the
- * sidebar interaction feeling instant.
- */
+// ── Filter (rAF-batched) ──────────────────────────────────────────────────────────────────────────
 function scheduleFilter() {
-    if (filterRafId) return; // already scheduled for this frame
+    if (filterRafId) return;
     filterRafId = requestAnimationFrame(() => {
         filterRafId = null;
         runFilter();
@@ -117,7 +105,6 @@ function scheduleFilter() {
 }
 
 function runFilter() {
-    // 1. Compute visibility for every card (read phase — no DOM writes)
     const visibility = new Map();
     productCardsMap.forEach((data, card) => {
         const visible =
@@ -129,12 +116,9 @@ function runFilter() {
             && (data.price >= minPrice && data.price <= maxPrice);
         visibility.set(card, visible);
     });
-
-    // 2. Write phase — batch all display changes together
     visibility.forEach((visible, card) => {
-        const current = card.style.display;
-        const next    = visible ? 'flex' : 'none';
-        if (current !== next) card.style.display = next; // skip unchanged
+        const next = visible ? 'flex' : 'none';
+        if (card.style.display !== next) card.style.display = next;
     });
 }
 
@@ -148,7 +132,7 @@ searchInput.addEventListener('input', e => {
     }, 120);
 });
 
-// ── Sidebar ──────────────────────────────────────────────────────────────────────────────────
+// ── Sidebar ──────────────────────────────────────────────────────────────────────────────────────
 function closeAllSubMenus(except) {
     document.querySelectorAll('.sub-menu').forEach(sm => { if (sm !== except) sm.classList.remove('open'); });
     document.querySelectorAll('.arrow').forEach(a => a.classList.remove('rotated'));
@@ -201,7 +185,7 @@ function handleFilterClick(btn) {
 
 filterButtons.forEach(btn => btn.addEventListener('click', () => handleFilterClick(btn)));
 
-// ── Modal ───────────────────────────────────────────────────────────────────────────────────
+// ── Modal ─────────────────────────────────────────────────────────────────────────────────────────
 const modalImage           = document.getElementById('modalImage');
 const modalThumbs          = document.getElementById('modalThumbs');
 const modalThumb1          = document.getElementById('modalThumb1');
@@ -230,15 +214,32 @@ function setModalImage(idx) {
     document.querySelectorAll('.modal-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
 }
 
+// Country code → flag emoji map
+const COUNTRY_FLAGS = { GR: '🇬🇷', CY: '🇨🇾', DE: '🇩🇪', AT: '🇦🇹', NL: '🇳🇱', BE: '🇧🇪', PL: '🇵🇱' };
+
+/**
+ * Parses a price history token in the format: price_date_COUNTRY
+ * e.g. "79_17/5/26_GR"  →  79 €  17/5/26  🇬🇷 GR
+ * Date and country are both optional.
+ */
 function parsePriceTag(raw) {
     raw = (raw || '').trim();
     if (!raw) return '';
+    // Strip legacy "date>" prefix if present
     if (raw.includes('>')) raw = raw.split('>').pop().trim();
-    const parts = raw.split('_');
-    const price = (parts[0] || '').trim();
-    const date  = (parts[1] || '').trim();
+    const parts   = raw.split('_');
+    const price   = (parts[0] || '').trim();
+    const date    = (parts[1] || '').trim();
+    const country = (parts[2] || '').trim().toUpperCase();
     if (!price) return '';
-    return `<span class="ph-price">${price} €</span>${date ? `<em class="ph-date">${date}</em>` : ''}`;
+
+    const flag = country && COUNTRY_FLAGS[country] ? COUNTRY_FLAGS[country] : '';
+    const countryHtml = country
+        ? `<em class="ph-country">${flag ? flag + '\u00a0' : ''}${country}</em>`
+        : '';
+    const dateHtml = date ? `<em class="ph-date">${date}</em>` : '';
+
+    return `<span class="ph-price">${price} €</span>${dateHtml}${countryHtml}`;
 }
 
 function openModal(card) {
@@ -265,7 +266,7 @@ function openModal(card) {
         modalLidlBadge.style.display = 'none';
     }
     if (p.date) { modalDate.textContent = p.date; modalDate.style.display = 'inline'; }
-    else          { modalDate.style.display = 'none'; }
+    else { modalDate.style.display = 'none'; }
 
     modalDescription.textContent = desc || '';
 
@@ -279,14 +280,14 @@ function openModal(card) {
         const tags = p.price_history.split('|').map(t => t.trim()).filter(Boolean);
         const html = tags.map(t => `<span class="price-tag">${parsePriceTag(t)}</span>`).join('');
         if (html) { modalHistoryTags.innerHTML = html; modalPriceHistory.style.display = 'block'; }
-        else        { modalPriceHistory.style.display = 'none'; }
+        else { modalPriceHistory.style.display = 'none'; }
     } else { modalPriceHistory.style.display = 'none'; }
 
     if (p.lidl_history) {
         const entries = p.lidl_history.split('|').map(t => t.trim()).filter(Boolean);
         const html = entries.map(t => `<span class="price-tag lidl-tag">${parsePriceTag(t)}</span>`).join('');
         if (html) { modalLidlHistoryTags.innerHTML = html; modalLidlHistory.style.display = 'block'; }
-        else        { modalLidlHistory.style.display = 'none'; }
+        else { modalLidlHistory.style.display = 'none'; }
     } else { modalLidlHistory.style.display = 'none'; }
 
     if (p.youtube) {
