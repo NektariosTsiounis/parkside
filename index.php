@@ -1,172 +1,146 @@
 <?php
 /**
- * Parkside Tool Catalog — Bilingual (Greek / English)
+ * Parkside Tool Catalog
  *
- * Data sources:
- *   Greek.csv     — Greek text: ID, Title, Description, Tech_Specs, Main_Cat, Second_Cat, Third_Cat, Forth_Cat
- *   English.csv   — English text: ID, Title_EN, Description_EN, Tech_Specs_EN, Main_Cat_EN, Second_Cat_EN, Third_Cat_EN, Forth_Cat_EN
- *   Parkside.csv  — Title[0] Price[1] Date[2] Desc[3] Specs[4] Image[5] MainCat[6] SecCat[7] ThirdCat[8] ForthCat[9] PriceHistory[10] LidlPlus[11] Youtube[12]
- *                   NO ID column — row position (1-based) maps to Greek/English ID
+ * Three CSV sources joined by ID:
+ *   main.csv    → ID, Price, Date_of_price, LidlPlus_Price, Price_History,
+ *                  LidlPlus_Price_History, Image_URL, other_Image_URL, Youtube
+ *   Greek.csv   → ID, Title, Description, Tech_Specs,
+ *                  Main_Category, Second_Category, Third_Category, Forth_Category
+ *   English.csv → ID, Title_EN, Description_EN, Tech_Specs_EN,
+ *                  Main_Category_EN, Second_Category_EN, Third_Category_EN, Forth_Category_EN
  */
 
 $defaultImage = 'Media/Default/parkside.png';
 $products     = [];
-$sidebarMenu  = []; // [greek_main => ['_en'=>str, '_subs'=>[], '_en_subs'=>[], '_deepsubs'=>[], '_en_deepsubs'=>[]]]
+$sidebarMenu  = [];
 
-function parseRawPrice($raw) {
-    $raw = trim($raw, " \t\n\r\0\x0B\"");
-    if (strpos($raw, '_') !== false) {
-        $parts = explode('_', $raw, 2);
-        $price = str_replace(',', '.', trim($parts[0]));
-        $date  = trim($parts[1]);
-    } else {
-        $price = str_replace(',', '.', $raw);
-        $date  = '';
-    }
-    return ['price' => $price, 'date' => $date];
+// ---------- helpers ----------
+
+function cleanCell($v) {
+    return trim($v ?? '', " \t\n\r\0\x0B\"");
 }
 
 function formatDate($raw) {
+    $raw = trim($raw);
     if (empty($raw)) return '';
-    $d = DateTime::createFromFormat('n/j/Y', $raw);
-    if ($d) return $d->format('j/n/y');
-    $d = DateTime::createFromFormat('n/j/y', $raw);
-    if ($d) return $d->format('j/n/y');
+    foreach (['d/n/Y', 'n/d/Y', 'd/m/Y', 'j/n/Y', 'n/j/Y'] as $fmt) {
+        $d = DateTime::createFromFormat($fmt, $raw);
+        if ($d) return $d->format('d/m/Y');
+    }
     return $raw;
 }
 
 /**
- * Resolve image reference from Parkside.csv col[5].
- * That column stores a numeric row reference (1, 2, 9…) NOT a file path.
- * Images are stored in Products/<num>.webp (root-level Products folder).
- * Falls back to Media/Products/<num>.webp for legacy support.
+ * Resolve image filename from main.csv Image_URL column.
+ * The column stores a descriptive text name (e.g. "Ντουζιέρα ηλιακή").
+ * Images are stored in Products/<name>.webp (or .jpg / .jpeg / .png).
  */
-function resolveImage($raw, $default) {
-    $raw = trim($raw, " \t\n\r\0\x0B\"");
-    if (empty($raw)) return $default;
-    if (strpos($raw, 'http://') === 0 || strpos($raw, 'https://') === 0) return $raw;
-    // Numeric reference → look for image file in Products/ first
-    if (ctype_digit($raw)) {
-        // Primary location: Products/<num>.webp
-        foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
-            $path = 'Products/' . $raw . '.' . $ext;
-            if (file_exists($path)) return $path;
-        }
-        // Legacy fallback: Media/Products/<num>.webp
-        foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
-            $path = 'Media/Products/' . $raw . '.' . $ext;
-            if (file_exists($path)) return $path;
-        }
-        return $default;
-    }
-    // Explicit relative path — try as-is first
-    if (file_exists($raw)) return $raw;
-    // Try Products/ prefix
+function resolveImage($rawName, $default) {
+    $name = cleanCell($rawName);
+    if (empty($name)) return $default;
+    // If it's already a full URL return as-is
+    if (strpos($name, 'http://') === 0 || strpos($name, 'https://') === 0) return $name;
+    // Search Products/ folder for any common image extension
     foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
-        $path = 'Products/' . $raw . '.' . $ext;
+        $path = 'Products/' . $name . '.' . $ext;
+        if (file_exists($path)) return $path;
+    }
+    // Legacy fallback
+    foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
+        $path = 'Media/Products/' . $name . '.' . $ext;
         if (file_exists($path)) return $path;
     }
     return $default;
 }
 
-/** Read Greek.csv / English.csv — keyed by integer ID (col 0) */
-function readIdCsv($file) {
+function parseLidlHistory($raw) {
+    // Returns current Lidl+ price (first entry) or null
+    $raw = cleanCell($raw);
+    if (empty($raw)) return null;
+    $first = explode('|', $raw)[0];
+    if (strpos($first, '>') !== false) {
+        $sides = explode('>', $first, 2);
+        $val   = explode('_', $sides[1])[0];
+    } else {
+        $val = explode('_', $first)[0];
+    }
+    $val = str_replace(',', '.', trim($val));
+    return is_numeric($val) ? $val : null;
+}
+
+// ---------- read CSV files by ID ----------
+
+function readCsvById($file) {
     $rows = [];
     if (!file_exists($file)) return $rows;
-    ini_set('auto_detect_line_endings', true);
     $h = fopen($file, 'r');
-    fgetcsv($h, 0, ','); // skip header (handles BOM too)
-    while (($d = fgetcsv($h, 0, ',')) !== FALSE) {
-        if (!isset($d[0])) continue;
-        $id = intval(trim($d[0], " \t\n\r\0\x0B\"\xEF\xBB\xBF"));
-        if ($id > 0) $rows[$id] = $d;
+    // Strip BOM from first line
+    $header = fgetcsv($h, 0, ',');
+    while (($row = fgetcsv($h, 0, ',')) !== false) {
+        if (empty($row) || !isset($row[0])) continue;
+        $idRaw = trim($row[0], " \t\n\r\0\x0B\"");
+        $id    = (int) $idRaw;
+        if ($id > 0) $rows[$id] = $row;
     }
     fclose($h);
     return $rows;
 }
 
-/** Read Parkside.csv — NO ID column; 1-based row index maps to Greek/English ID */
-function readCatalogCsv($file) {
-    $rows = [];
-    if (!file_exists($file)) return $rows;
-    ini_set('auto_detect_line_endings', true);
-    $h = fopen($file, 'r');
-    fgetcsv($h, 0, ','); // skip header
-    $rowIdx = 1;
-    while (($d = fgetcsv($h, 0, ',')) !== FALSE) {
-        if (!empty($d) && isset($d[0]) && !empty(trim($d[0]))) {
-            $rows[$rowIdx] = $d;
-        }
-        $rowIdx++;
-    }
-    fclose($h);
-    return $rows;
-}
+$mainRows    = readCsvById('main.csv');    // [id => row]
+$greekRows   = readCsvById('Greek.csv');   // [id => row]
+$englishRows = readCsvById('English.csv'); // [id => row]
 
-$greekRows   = readIdCsv('Greek.csv');
-$englishRows = readIdCsv('English.csv');
-$catalogRows = readCatalogCsv('Parkside.csv');
+// ---------- build products list ----------
+// Greek.csv is the master — iterate its IDs
 
 foreach ($greekRows as $id => $gr) {
-    // Skip ghost rows with no title
-    $title = trim($gr[1] ?? '', " \t\n\r\0\x0B\"");
+    $title = cleanCell($gr[1] ?? '');
     if (empty($title)) continue;
 
-    $en  = $englishRows[$id] ?? [];
-    $cat = $catalogRows[$id] ?? [];
+    $m  = $mainRows[$id]    ?? [];
+    $en = $englishRows[$id] ?? [];
 
-    $desc    = trim($gr[2] ?? '', "\"");
-    $specs   = trim($gr[3] ?? '', "\"");
+    // --- Greek fields ---
+    $desc    = cleanCell($gr[2] ?? '');
+    $specs   = cleanCell($gr[3] ?? '');
+    $mainCat = cleanCell($gr[4] ?? '') ?: 'Γενικά';
+    $secCat  = cleanCell($gr[5] ?? '');
+    $thrCat  = cleanCell($gr[6] ?? '');
+    $forCat  = cleanCell($gr[7] ?? '');
 
-    // Greek categories
-    $mainCat = !empty(trim($gr[4] ?? '')) ? trim($gr[4], " \t\n\r\0\x0B\"") : 'Γενικά';
-    $secCat  = trim($gr[5] ?? '', " \t\n\r\0\x0B\"");
-    $thrCat  = trim($gr[6] ?? '', " \t\n\r\0\x0B\"");
-    $forCat  = trim($gr[7] ?? '', " \t\n\r\0\x0B\"");
+    // --- English fields ---
+    $titleEN   = cleanCell($en[1] ?? '');
+    $descEN    = cleanCell($en[2] ?? '');
+    $specsEN   = cleanCell($en[3] ?? '');
+    $mainCatEN = cleanCell($en[4] ?? '') ?: 'General';
+    $secCatEN  = cleanCell($en[5] ?? '');
+    $thrCatEN  = cleanCell($en[6] ?? '');
+    $forCatEN  = cleanCell($en[7] ?? '');
 
-    // English categories
-    $mainCatEN = !empty(trim($en[4] ?? '')) ? trim($en[4], " \t\n\r\0\x0B\"") : 'General';
-    $secCatEN  = trim($en[5] ?? '', " \t\n\r\0\x0B\"");
-    $thrCatEN  = trim($en[6] ?? '', " \t\n\r\0\x0B\"");
-    $forCatEN  = trim($en[7] ?? '', " \t\n\r\0\x0B\"");
+    // --- main.csv fields ---
+    // main.csv columns: ID[0] Price[1] Date[2] LidlPlus[3] PriceHistory[4] LidlHistory[5] Image[6] OtherImage[7] Youtube[8]
+    $rawPrice     = cleanCell($m[1] ?? '');
+    $price        = str_replace(',', '.', $rawPrice);
+    $displayDate  = formatDate(cleanCell($m[2] ?? ''));
+    $lidlPlus     = cleanCell($m[3] ?? '') ?: null;
+    $priceHistory = cleanCell($m[4] ?? '') ?: null;
+    $lidlHistory  = cleanCell($m[5] ?? '') ?: null;
+    $imageRaw     = cleanCell($m[6] ?? '');
+    $image2Raw    = cleanCell($m[7] ?? '');
+    $youtube      = cleanCell($m[8] ?? '') ?: null;
 
-    $titleEN = trim($en[1] ?? '', "\"");
-    $descEN  = trim($en[2] ?? '', "\"");
-    $specsEN = trim($en[3] ?? '', "\"");
+    $finalImage  = resolveImage($imageRaw,  $defaultImage);
+    $secondImage = resolveImage($image2Raw, '');
 
-    // Parkside.csv: Title[0] Price[1] Date[2] Desc[3] Specs[4] Image[5] ...
-    $rawPrice    = isset($cat[1]) ? trim($cat[1], " \t\n\r\0\x0B\"") : '';
-    $parsed      = parseRawPrice($rawPrice);
-    $price       = !empty($parsed['price']) ? $parsed['price'] : '0';
+    // Effective price for filtering (prefer Lidl+ price)
+    $lidlPlus      = ($lidlPlus && is_numeric(str_replace(',','.',$lidlPlus)))
+                     ? str_replace(',','.',$lidlPlus) : null;
+    $filterPrice   = floatval($lidlPlus ?? $price);
 
-    $rawDate     = isset($cat[2]) ? trim($cat[2], " \t\n\r\0\x0B\"") : '';
-    $displayDate = !empty($rawDate) ? formatDate($rawDate) : formatDate($parsed['date']);
+    $allCats = array_values(array_filter([$mainCat, $secCat, $thrCat, $forCat]));
 
-    $finalImage  = resolveImage($cat[5]  ?? '', $defaultImage);
-    $secondImage = resolveImage($cat[13] ?? '', '');
-
-    $priceHistory = isset($cat[10]) && !empty(trim($cat[10])) ? trim($cat[10], " \t\n\r\0\x0B\"") : null;
-    $lidlRaw      = isset($cat[11]) && !empty(trim($cat[11])) ? trim($cat[11], " \t\n\r\0\x0B\"") : null;
-    $youtube      = isset($cat[12]) && !empty(trim($cat[12])) ? trim($cat[12], " \t\n\r\0\x0B\"") : null;
-
-    $lidlCurrentPrice = null;
-    if ($lidlRaw) {
-        $firstEntry = explode('|', $lidlRaw)[0];
-        if (strpos($firstEntry, '>') !== false) {
-            $sides    = explode('>', $firstEntry, 2);
-            $lidlPart = explode('_', $sides[1])[0];
-            $lidlCurrentPrice = trim($lidlPart);
-        } else {
-            $lidlCurrentPrice = parseRawPrice($firstEntry)['price'];
-        }
-    }
-
-    $jsPrice           = floatval($price);
-    $jsLidlPrice       = $lidlCurrentPrice ? floatval($lidlCurrentPrice) : null;
-    $activeFilterPrice = $jsLidlPrice ?? $jsPrice;
-    $allCats           = array_values(array_filter([$mainCat, $secCat, $thrCat, $forCat]));
-
-    // Build bilingual sidebar menu
+    // --- sidebar menu ---
     if (!isset($sidebarMenu[$mainCat])) {
         $sidebarMenu[$mainCat] = [
             '_en'          => $mainCatEN,
@@ -179,7 +153,7 @@ foreach ($greekRows as $id => $gr) {
     if (!empty($secCat)) {
         if (!in_array($secCat, $sidebarMenu[$mainCat]['_subs'])) {
             $sidebarMenu[$mainCat]['_subs'][]    = $secCat;
-            $sidebarMenu[$mainCat]['_en_subs'][] = !empty($secCatEN) ? $secCatEN : $secCat;
+            $sidebarMenu[$mainCat]['_en_subs'][] = $secCatEN ?: $secCat;
         }
         if (!isset($sidebarMenu[$mainCat]['_deepsubs'][$secCat])) {
             $sidebarMenu[$mainCat]['_deepsubs'][$secCat]    = [];
@@ -188,7 +162,7 @@ foreach ($greekRows as $id => $gr) {
         foreach ([[$thrCat, $thrCatEN], [$forCat, $forCatEN]] as [$deep, $deepEN]) {
             if (!empty($deep) && !in_array($deep, $sidebarMenu[$mainCat]['_deepsubs'][$secCat])) {
                 $sidebarMenu[$mainCat]['_deepsubs'][$secCat][]    = $deep;
-                $sidebarMenu[$mainCat]['_en_deepsubs'][$secCat][] = !empty($deepEN) ? $deepEN : $deep;
+                $sidebarMenu[$mainCat]['_en_deepsubs'][$secCat][] = $deepEN ?: $deep;
             }
         }
     }
@@ -213,10 +187,10 @@ foreach ($greekRows as $id => $gr) {
         'fourth_category'    => $forCat,
         'fourth_category_en' => $forCatEN,
         'price_history'      => $priceHistory,
-        'lidl_plus'          => $lidlCurrentPrice,
-        'lidl_raw'           => $lidlRaw,
+        'lidl_plus'          => $lidlPlus,
+        'lidl_history'       => $lidlHistory,
         'youtube'            => $youtube,
-        'js_price'           => $activeFilterPrice,
+        'filter_price'       => $filterPrice,
         'all_cats'           => $allCats,
     ];
 }
@@ -336,7 +310,7 @@ ksort($sidebarMenu);
                 data-third="<?= htmlspecialchars($product['third_category']) ?>"
                 data-fourth="<?= htmlspecialchars($product['fourth_category']) ?>"
                 data-all-categories="<?= htmlspecialchars(json_encode($product['all_cats'])) ?>"
-                data-price="<?= $product['js_price'] ?>"
+                data-price="<?= $product['filter_price'] ?>"
                 data-product-json="<?= htmlspecialchars(json_encode([
                     'title'              => $product['title'],
                     'title_en'           => $product['title_en'],
@@ -358,13 +332,14 @@ ksort($sidebarMenu);
                     'fourth_category_en' => $product['fourth_category_en'],
                     'price_history'      => $product['price_history'],
                     'lidl_plus'          => $product['lidl_plus'],
-                    'lidl_raw'           => $product['lidl_raw'],
+                    'lidl_history'       => $product['lidl_history'],
                     'youtube'            => $product['youtube'],
                 ])) ?>">
 
                 <div class="card-img-holder">
                     <img src="<?= htmlspecialchars($product['image']) ?>"
-                         alt="<?= htmlspecialchars($product['title']) ?>" loading="lazy">
+                         alt="<?= htmlspecialchars($product['title']) ?>"
+                         loading="lazy" width="300" height="300">
                 </div>
                 <div class="card-body-holder">
                     <h3 class="card-title-el"><?= htmlspecialchars($product['title']) ?></h3>
