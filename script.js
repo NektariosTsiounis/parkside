@@ -205,6 +205,8 @@ const modalSpecsList       = document.getElementById('modalSpecsList');
 const modalYoutube         = document.getElementById('modalYoutube');
 const modalYoutubeLink     = document.getElementById('modalYoutubeLink');
 
+const COUNTRY_FLAGS = { GR: '🇬🇷', CY: '🇨🇾', DE: '🇩🇪', AT: '🇦🇹', NL: '🇳🇱', BE: '🇧🇪', PL: '🇵🇱' };
+
 let images = [];
 let currentImageIdx = 0;
 
@@ -216,27 +218,29 @@ function setModalImage(idx) {
 
 /**
  * Parses a price history token.
- * CSV format: "price_date_..." — we only ever want parts[0] (price) and parts[1] (date).
- * Anything after index 1 (country codes like GR, CY, duplicates, etc.) is ignored.
+ * CSV format: "price_date_COUNTRY" — always exactly this order.
+ *   parts[0] = price   e.g. "79.99"
+ *   parts[1] = date    e.g. "17/5/26"
+ *   parts[2] = country e.g. "GR" or "CY"  (use only the first unique value)
  *
- * Examples:
- *   "79.99_17/5/26_GR"     → 79.99 €  17/5/26
- *   "79.99_17/5/26_GR_GR"  → 79.99 €  17/5/26
- *   "69.99_17/5/26_CY"     → 69.99 €  17/5/26
- *   "79.99_17/5/26"        → 79.99 €  17/5/26
+ * Duplicate country codes (GR_GR) are handled by just reading parts[2] once.
  */
 function parsePriceTag(raw) {
     raw = (raw || '').trim();
     if (!raw) return '';
 
-    const parts = raw.split('_');
-    const price = (parts[0] || '').trim();
-    const date  = (parts[1] || '').trim();
+    const parts   = raw.split('_');
+    const price   = (parts[0] || '').trim();
+    const date    = (parts[1] || '').trim();
+    const country = (parts[2] || '').trim().toUpperCase();
 
     if (!price) return '';
 
-    const dateHtml  = date  ? `<em class="ph-date">${date}</em>`   : '';
-    return `<span class="ph-price">${price} €</span>${dateHtml}`;
+    const flag       = COUNTRY_FLAGS[country] || '';
+    const dateHtml   = date    ? `<em class="ph-date">${date}</em>` : '';
+    const countryHtml= country ? `<em class="ph-country">${flag ? flag + '\u00a0' : ''}${country}</em>` : '';
+
+    return `<span class="ph-price">${price} €</span>${dateHtml}${countryHtml}`;
 }
 
 function openModal(card) {
