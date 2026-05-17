@@ -154,24 +154,24 @@ function handleFilterClick(btn) {
 filterButtons.forEach(btn => btn.addEventListener('click', () => handleFilterClick(btn)));
 
 // ── Modal ──────────────────────────────────────────────────────────────────────────────────
-const modalImage         = document.getElementById('modalImage');
-const modalThumbs        = document.getElementById('modalThumbs');
-const modalThumb1        = document.getElementById('modalThumb1');
-const modalThumb2        = document.getElementById('modalThumb2');
-const modalTitle         = document.getElementById('modalTitle');
-const modalBreadcrumbs   = document.getElementById('modalBreadcrumbs');
-const modalPrice         = document.getElementById('modalPrice');
-const modalDate          = document.getElementById('modalDate');
-const modalLidlBadge     = document.getElementById('modalLidlBadge');
-const modalDescription   = document.getElementById('modalDescription');
-const modalLidlHistory   = document.getElementById('modalLidlHistory');
+const modalImage           = document.getElementById('modalImage');
+const modalThumbs          = document.getElementById('modalThumbs');
+const modalThumb1          = document.getElementById('modalThumb1');
+const modalThumb2          = document.getElementById('modalThumb2');
+const modalTitle           = document.getElementById('modalTitle');
+const modalBreadcrumbs     = document.getElementById('modalBreadcrumbs');
+const modalPrice           = document.getElementById('modalPrice');
+const modalDate            = document.getElementById('modalDate');
+const modalLidlBadge       = document.getElementById('modalLidlBadge');
+const modalDescription     = document.getElementById('modalDescription');
+const modalLidlHistory     = document.getElementById('modalLidlHistory');
 const modalLidlHistoryTags = document.getElementById('modalLidlHistoryTags');
-const modalPriceHistory  = document.getElementById('modalPriceHistory');
-const modalHistoryTags   = document.getElementById('modalHistoryTags');
-const modalSpecs         = document.getElementById('modalSpecs');
-const modalSpecsList     = document.getElementById('modalSpecsList');
-const modalYoutube       = document.getElementById('modalYoutube');
-const modalYoutubeLink   = document.getElementById('modalYoutubeLink');
+const modalPriceHistory    = document.getElementById('modalPriceHistory');
+const modalHistoryTags     = document.getElementById('modalHistoryTags');
+const modalSpecs           = document.getElementById('modalSpecs');
+const modalSpecsList       = document.getElementById('modalSpecsList');
+const modalYoutube         = document.getElementById('modalYoutube');
+const modalYoutubeLink     = document.getElementById('modalYoutubeLink');
 
 let images = [];
 let currentImageIdx = 0;
@@ -182,32 +182,48 @@ function setModalImage(idx) {
     document.querySelectorAll('.modal-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
 }
 
+/**
+ * Parse a single price history entry.
+ * Formats found in main.csv:
+ *   69.99_17/5/26          → price € (date)
+ *   17/5/26>69.99_17/5/26  → (legacy prefix) price € (date)
+ */
 function parsePriceTag(raw) {
-    raw = raw.trim();
+    raw = (raw || '').trim();
+    if (!raw) return '';
+
+    // Strip leading "date>" prefix if present (e.g. "17/5/26>69.99_17/5/26")
     if (raw.includes('>')) {
-        const parts = raw.split('>');
-        const date  = parts[0].trim();
-        const rest  = parts[1].trim();
-        const priceDate = rest.split('_');
-        return `<span>${priceDate[0].trim()} €</span><em>${date}${priceDate[1] ? ' (' + priceDate[1].trim() + ')' : ''}</em>`;
+        raw = raw.split('>').pop().trim();
     }
-    const pd = raw.split('_');
-    return `<span>${pd[0].trim()} €</span>${pd[1] ? '<em>' + pd[1].trim() + '</em>' : ''}`;
+
+    const parts = raw.split('_');
+    const price = (parts[0] || '').trim();
+    const date  = (parts[1] || '').trim();
+
+    if (!price) return '';
+    return `<span class="ph-price">${price} €</span>${date ? `<em class="ph-date">${date}</em>` : ''}`;
 }
 
 function openModal(card) {
     let p = {};
     try { p = JSON.parse(card.getAttribute('data-product-json')); } catch(e) {}
 
-    const isEN = currentLang === 'en';
+    const isEN  = currentLang === 'en';
     const title = isEN && p.title_en ? p.title_en : p.title;
     const desc  = isEN && p.description_en ? p.description_en : p.description;
     const specs = isEN && p.tech_specs_en ? p.tech_specs_en : p.tech_specs;
 
-    const cats = [p.main_category, p.second_category, p.third_category, p.fourth_category].filter(Boolean);
-    modalBreadcrumbs.textContent = cats.join(' › ');
+    // Breadcrumbs — respect language
+    const catKeys    = ['main_category',    'second_category',    'third_category',    'fourth_category'];
+    const catKeysEN  = ['main_category_en', 'second_category_en', 'third_category_en', 'fourth_category_en'];
+    const crumbKeys  = isEN ? catKeysEN : catKeys;
+    const crumbs     = crumbKeys.map(k => p[k]).filter(Boolean);
+    modalBreadcrumbs.textContent = crumbs.join(' › ');
+
     modalTitle.textContent = title || '';
 
+    // Pricing block
     if (p.lidl_plus) {
         modalPrice.innerHTML = `<span class="was-price">${p.price} €</span> <span class="now-price">${p.lidl_plus} €</span>`;
         modalLidlBadge.style.display = 'inline-block';
@@ -220,24 +236,34 @@ function openModal(card) {
 
     modalDescription.textContent = desc || '';
 
+    // Tech Specs
     const specsArr = (specs || '').split('|').map(s => s.trim()).filter(Boolean);
     if (specsArr.length) {
         modalSpecsList.innerHTML = specsArr.map(s => `<li>${s}</li>`).join('');
         modalSpecs.style.display = 'block';
     } else { modalSpecs.style.display = 'none'; }
 
+    // Regular price history
     if (p.price_history) {
-        const tags = p.price_history.split('|').filter(Boolean);
-        modalHistoryTags.innerHTML = tags.map(t => `<span class="price-tag">${parsePriceTag(t)}</span>`).join('');
-        modalPriceHistory.style.display = 'block';
+        const tags = p.price_history.split('|').map(t => t.trim()).filter(Boolean);
+        const html = tags.map(t => `<span class="price-tag">${parsePriceTag(t)}</span>`).join('');
+        if (html) {
+            modalHistoryTags.innerHTML = html;
+            modalPriceHistory.style.display = 'block';
+        } else { modalPriceHistory.style.display = 'none'; }
     } else { modalPriceHistory.style.display = 'none'; }
 
-    if (p.lidl_raw) {
-        const entries = p.lidl_raw.split('|').filter(Boolean);
-        modalLidlHistoryTags.innerHTML = entries.map(t => `<span class="price-tag lidl-tag">${parsePriceTag(t)}</span>`).join('');
-        modalLidlHistory.style.display = 'block';
+    // Lidl+ price history — field is "lidl_history" (fixed from old "lidl_raw")
+    if (p.lidl_history) {
+        const entries = p.lidl_history.split('|').map(t => t.trim()).filter(Boolean);
+        const html = entries.map(t => `<span class="price-tag lidl-tag">${parsePriceTag(t)}</span>`).join('');
+        if (html) {
+            modalLidlHistoryTags.innerHTML = html;
+            modalLidlHistory.style.display = 'block';
+        } else { modalLidlHistory.style.display = 'none'; }
     } else { modalLidlHistory.style.display = 'none'; }
 
+    // YouTube
     if (p.youtube) {
         const label = isEN ? '📺 Watch on YouTube' : '📺 Δείτε το Video στο YouTube';
         modalYoutubeLink.textContent = label;
@@ -245,6 +271,7 @@ function openModal(card) {
         modalYoutube.style.display = 'block';
     } else { modalYoutube.style.display = 'none'; }
 
+    // Images
     images = [p.image || ''];
     if (p.second_image) images.push(p.second_image);
     setModalImage(0);

@@ -31,42 +31,19 @@ function formatDate($raw) {
     return $raw;
 }
 
-/**
- * Resolve image filename from main.csv Image_URL column.
- * The column stores a descriptive text name (e.g. "Ντουζιέρα ηλιακή").
- * Images are stored in Products/<name>.webp (or .jpg / .jpeg / .png).
- */
 function resolveImage($rawName, $default) {
     $name = cleanCell($rawName);
     if (empty($name)) return $default;
-    // If it's already a full URL return as-is
     if (strpos($name, 'http://') === 0 || strpos($name, 'https://') === 0) return $name;
-    // Search Products/ folder for any common image extension
     foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
         $path = 'Products/' . $name . '.' . $ext;
         if (file_exists($path)) return $path;
     }
-    // Legacy fallback
     foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
         $path = 'Media/Products/' . $name . '.' . $ext;
         if (file_exists($path)) return $path;
     }
     return $default;
-}
-
-function parseLidlHistory($raw) {
-    // Returns current Lidl+ price (first entry) or null
-    $raw = cleanCell($raw);
-    if (empty($raw)) return null;
-    $first = explode('|', $raw)[0];
-    if (strpos($first, '>') !== false) {
-        $sides = explode('>', $first, 2);
-        $val   = explode('_', $sides[1])[0];
-    } else {
-        $val = explode('_', $first)[0];
-    }
-    $val = str_replace(',', '.', trim($val));
-    return is_numeric($val) ? $val : null;
 }
 
 // ---------- read CSV files by ID ----------
@@ -75,24 +52,21 @@ function readCsvById($file) {
     $rows = [];
     if (!file_exists($file)) return $rows;
     $h = fopen($file, 'r');
-    // Strip BOM from first line
-    $header = fgetcsv($h, 0, ',');
+    fgetcsv($h, 0, ','); // skip header + BOM
     while (($row = fgetcsv($h, 0, ',')) !== false) {
         if (empty($row) || !isset($row[0])) continue;
-        $idRaw = trim($row[0], " \t\n\r\0\x0B\"");
-        $id    = (int) $idRaw;
+        $id = (int) trim($row[0], " \t\n\r\0\x0B\"");
         if ($id > 0) $rows[$id] = $row;
     }
     fclose($h);
     return $rows;
 }
 
-$mainRows    = readCsvById('main.csv');    // [id => row]
-$greekRows   = readCsvById('Greek.csv');   // [id => row]
-$englishRows = readCsvById('English.csv'); // [id => row]
+$mainRows    = readCsvById('main.csv');
+$greekRows   = readCsvById('Greek.csv');
+$englishRows = readCsvById('English.csv');
 
 // ---------- build products list ----------
-// Greek.csv is the master — iterate its IDs
 
 foreach ($greekRows as $id => $gr) {
     $title = cleanCell($gr[1] ?? '');
@@ -101,7 +75,7 @@ foreach ($greekRows as $id => $gr) {
     $m  = $mainRows[$id]    ?? [];
     $en = $englishRows[$id] ?? [];
 
-    // --- Greek fields ---
+    // Greek
     $desc    = cleanCell($gr[2] ?? '');
     $specs   = cleanCell($gr[3] ?? '');
     $mainCat = cleanCell($gr[4] ?? '') ?: 'Γενικά';
@@ -109,7 +83,7 @@ foreach ($greekRows as $id => $gr) {
     $thrCat  = cleanCell($gr[6] ?? '');
     $forCat  = cleanCell($gr[7] ?? '');
 
-    // --- English fields ---
+    // English
     $titleEN   = cleanCell($en[1] ?? '');
     $descEN    = cleanCell($en[2] ?? '');
     $specsEN   = cleanCell($en[3] ?? '');
@@ -118,14 +92,13 @@ foreach ($greekRows as $id => $gr) {
     $thrCatEN  = cleanCell($en[6] ?? '');
     $forCatEN  = cleanCell($en[7] ?? '');
 
-    // --- main.csv fields ---
-    // main.csv columns: ID[0] Price[1] Date[2] LidlPlus[3] PriceHistory[4] LidlHistory[5] Image[6] OtherImage[7] Youtube[8]
+    // main.csv: ID[0] Price[1] Date[2] LidlPlus[3] PriceHistory[4] LidlPlusHistory[5] Image[6] OtherImage[7] Youtube[8]
     $rawPrice     = cleanCell($m[1] ?? '');
     $price        = str_replace(',', '.', $rawPrice);
     $displayDate  = formatDate(cleanCell($m[2] ?? ''));
     $lidlPlus     = cleanCell($m[3] ?? '') ?: null;
     $priceHistory = cleanCell($m[4] ?? '') ?: null;
-    $lidlHistory  = cleanCell($m[5] ?? '') ?: null;
+    $lidlHistory  = cleanCell($m[5] ?? '') ?: null;  // LidlPlus_Price_History
     $imageRaw     = cleanCell($m[6] ?? '');
     $image2Raw    = cleanCell($m[7] ?? '');
     $youtube      = cleanCell($m[8] ?? '') ?: null;
@@ -133,22 +106,15 @@ foreach ($greekRows as $id => $gr) {
     $finalImage  = resolveImage($imageRaw,  $defaultImage);
     $secondImage = resolveImage($image2Raw, '');
 
-    // Effective price for filtering (prefer Lidl+ price)
-    $lidlPlus      = ($lidlPlus && is_numeric(str_replace(',','.',$lidlPlus)))
-                     ? str_replace(',','.',$lidlPlus) : null;
-    $filterPrice   = floatval($lidlPlus ?? $price);
+    $lidlPlusNum   = ($lidlPlus && is_numeric(str_replace(',', '.', $lidlPlus)))
+                     ? str_replace(',', '.', $lidlPlus) : null;
+    $filterPrice   = floatval($lidlPlusNum ?? $price);
 
     $allCats = array_values(array_filter([$mainCat, $secCat, $thrCat, $forCat]));
 
-    // --- sidebar menu ---
+    // sidebar
     if (!isset($sidebarMenu[$mainCat])) {
-        $sidebarMenu[$mainCat] = [
-            '_en'          => $mainCatEN,
-            '_subs'        => [],
-            '_en_subs'     => [],
-            '_deepsubs'    => [],
-            '_en_deepsubs' => [],
-        ];
+        $sidebarMenu[$mainCat] = ['_en'=>$mainCatEN,'_subs'=>[],'_en_subs'=>[],'_deepsubs'=>[],'_en_deepsubs'=>[]];
     }
     if (!empty($secCat)) {
         if (!in_array($secCat, $sidebarMenu[$mainCat]['_subs'])) {
@@ -187,7 +153,7 @@ foreach ($greekRows as $id => $gr) {
         'fourth_category'    => $forCat,
         'fourth_category_en' => $forCatEN,
         'price_history'      => $priceHistory,
-        'lidl_plus'          => $lidlPlus,
+        'lidl_plus'          => $lidlPlusNum,
         'lidl_history'       => $lidlHistory,
         'youtube'            => $youtube,
         'filter_price'       => $filterPrice,
@@ -394,18 +360,26 @@ ksort($sidebarMenu);
                     <p id="modalLidlBadge" class="l-plus-badge" style="display:none;">💳 Lidl Plus</p>
                 </div>
                 <p id="modalDescription" class="modal-body-description"></p>
+
+                <!-- Lidl+ Price History -->
                 <div id="modalLidlHistory" class="modal-extra-section" style="display:none;">
                     <h4 class="i18n" data-el="💳 Ιστορικό Lidl Plus" data-en="💳 Lidl Plus History">💳 Ιστορικό Lidl Plus</h4>
                     <div id="modalLidlHistoryTags" class="modal-tags-container"></div>
                 </div>
+
+                <!-- Regular Price History -->
                 <div id="modalPriceHistory" class="modal-extra-section" style="display:none;">
                     <h4 class="i18n" data-el="Ιστορικό Τιμών" data-en="Price History">Ιστορικό Τιμών</h4>
                     <div id="modalHistoryTags" class="modal-tags-container"></div>
                 </div>
+
+                <!-- Tech Specs -->
                 <div id="modalSpecs" class="modal-extra-section" style="display:none;">
                     <h4 class="i18n" data-el="Τεχνικά Χαρακτηριστικά" data-en="Technical Specifications">Τεχνικά Χαρακτηριστικά</h4>
                     <ul id="modalSpecsList"></ul>
                 </div>
+
+                <!-- YouTube -->
                 <div id="modalYoutube" class="modal-extra-section" style="display:none;">
                     <h4>Video</h4>
                     <a id="modalYoutubeLink" href="" target="_blank" rel="noopener"
@@ -419,16 +393,32 @@ ksort($sidebarMenu);
 </div>
 
 <footer class="site-footer">
-    <div class="footer-disclaimer">
-        <span class="disclaimer-icon">⚠️</span>
-        <p>
-            <strong class="i18n" data-el="Ανεξάρτητος Κατάλογος." data-en="Independent Catalog.">Ανεξάρτητος Κατάλογος.</strong>
-            <span class="i18n"
-                data-el="Αυτός ο κατάλογος δημιουργήθηκε από ιδιώτη χωρίς σχέση με Parkside ή Lidl. Όλα τα εμπορικά σήματα ανήκουν στους κατόχους τους. Οι τιμές ενδέχεται να μην είναι ενημερωμένες."
-                data-en="This catalog was created by a private individual with no affiliation to Parkside or Lidl. All trademarks belong to their respective owners. Prices may not always be up to date.">
-                Αυτός ο κατάλογος δημιουργήθηκε από ιδιώτη χωρίς σχέση με <strong>Parkside</strong> ή <strong>Lidl</strong>. Όλα τα εμπορικά σήματα ανήκουν στους κατόχους τους.
-            </span>
-        </p>
+    <div class="footer-inner">
+
+        <!-- Price source notice -->
+        <div class="footer-price-source">
+            <span class="footer-flag">🇬🇷</span>
+            <span class="footer-flag">🇨🇾</span>
+            <p class="i18n"
+               data-el="Οι τιμές συλλέγονται από τα καταστήματα Lidl Ελλάδας και Κύπρου. Ενδέχεται να διαφέρουν ή να μην είναι ενημερωμένες."
+               data-en="Prices are collected from Lidl Greece and Lidl Cyprus stores. They may vary or not always be up to date.">
+               Οι τιμές συλλέγονται από τα καταστήματα <strong>Lidl Ελλάδας</strong> και <strong>Lidl Κύπρου</strong>. Ενδέχεται να διαφέρουν ή να μην είναι ενημερωμένες.
+            </p>
+        </div>
+
+        <!-- Legal disclaimer -->
+        <div class="footer-disclaimer">
+            <span class="disclaimer-icon">⚠️</span>
+            <p>
+                <strong class="i18n" data-el="Ανεξάρτητος Κατάλογος." data-en="Independent Catalog.">Ανεξάρτητος Κατάλογος.</strong>
+                <span class="i18n"
+                    data-el="Αυτός ο κατάλογος δημιουργήθηκε από ιδιώτη χωρίς σχέση με Parkside ή Lidl. Όλα τα εμπορικά σήματα ανήκουν στους κατόχους τους."
+                    data-en="This catalog was created by a private individual with no affiliation to Parkside or Lidl. All trademarks belong to their respective owners.">
+                    Αυτός ο κατάλογος δημιουργήθηκε από ιδιώτη χωρίς σχέση με <strong>Parkside</strong> ή <strong>Lidl</strong>. Όλα τα εμπορικά σήματα ανήκουν στους κατόχους τους.
+                </span>
+            </p>
+        </div>
+
     </div>
 </footer>
 
