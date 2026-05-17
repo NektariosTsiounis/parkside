@@ -163,77 +163,215 @@ min-height: calc(100vh - 80px - 60px);
 .l-plus-badge { font-size: 11px; background: var(--lidl-yellow); color: var(--lidl-blue); padding: 3px 8px; border-radius: 4px; font-weight: 700; display: inline-block; width: fit-content; }
 .card-btn-action { margin-top: auto; padding: 10px 0 2px; font-size: 13px; color: var(--accent-color); font-weight: 600; }
 
-/* ── Modal ── */
-.custom-modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+/* ══════════════════════════════════════════════
+   MODAL — compact layout
+   ┌─────────────────────────────────────────────┐
+   │  [img 160px]  Title                         │
+   │               Breadcrumbs                   │
+   │               Price  Date  LidlBadge        │
+   │               Price History tags            │
+   │               Lidl+ History tags            │
+   ├─────────────────────────────────────────────┤
+   │  Description                                │
+   ├─────────────────────────────────────────────┤
+   │  Tech Specs                                 │
+   ├─────────────────────────────────────────────┤
+   │  YouTube                                    │
+   └─────────────────────────────────────────────┘
+   ══════════════════════════════════════════════ */
+
+.custom-modal-backdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 1000;
+  align-items: center; justify-content: center; padding: 20px;
+}
 .custom-modal-backdrop.open { display: flex; }
-.custom-modal-window { background: white; border-radius: 12px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
-.custom-modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted); z-index: 10; line-height: 1; padding: 4px 8px; border-radius: 4px; }
-.custom-modal-close:hover { background: #f1f5f9; color: var(--text-color); }
-.custom-modal-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-/* Image panel: image anchored to top-left, not centered vertically */
-.custom-modal-media {
+
+.custom-modal-window {
+  background: white; border-radius: 12px;
+  max-width: 700px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.custom-modal-close {
+  position: sticky; top: 0; float: right;
+  margin: 14px 14px 0 0;
+  background: #f1f5f9; border: none;
+  font-size: 20px; cursor: pointer;
+  color: var(--text-muted); z-index: 10;
+  line-height: 1; padding: 4px 8px;
+  border-radius: 6px; display: block;
+}
+.custom-modal-close:hover { background: #e2e8f0; color: var(--text-color); }
+
+/* ── Top hero block: image left + header info right ── */
+.custom-modal-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px 24px 0 24px;
+}
+
+.custom-modal-image-wrap {
+  flex-shrink: 0;
+  width: 150px;
+  height: 150px;
   background: #f8fafc;
-  border-radius: 12px 0 0 12px;
-  padding: 24px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 8px;
+}
+.custom-modal-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.custom-modal-header {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  min-height: 300px;
+  gap: 8px;
+  padding-top: 2px;
 }
-.custom-modal-media img { max-width: 100%; max-height: 280px; object-fit: contain; }
-.modal-thumbs { display: flex; gap: 10px; margin-top: 16px; }
-.modal-thumb { width: 60px; height: 60px; object-fit: contain; border: 2px solid var(--border-color); border-radius: 6px; cursor: pointer; padding: 4px; background: white; }
+
+.custom-modal-crumbs {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.custom-modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-color);
+}
+
+.custom-modal-pricing {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.modal-price-output { font-size: 20px; font-weight: 700; color: var(--primary-color); }
+.modal-price-date   { font-size: 11px; }
+
+/* Thumbnails under the image box */
+.modal-thumbs {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: center;
+}
+.modal-thumb {
+  width: 48px; height: 48px;
+  object-fit: contain;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer; padding: 3px;
+  background: white;
+}
 .modal-thumb.active { border-color: var(--accent-color); }
-.custom-modal-info { padding: 30px; display: flex; flex-direction: column; gap: 14px; }
-.custom-modal-crumbs { font-size: 12px; color: var(--text-muted); }
-.custom-modal-info h2 { font-size: 20px; font-weight: 700; line-height: 1.3; color: var(--text-color); }
-.custom-modal-pricing { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.modal-price-output { font-size: 22px; font-weight: 700; color: var(--primary-color); }
-.modal-price-date { font-size: 12px; }
-.modal-body-description { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
-.modal-extra-section { border-top: 1px solid var(--border-color); padding-top: 14px; }
-.modal-extra-section h4 { font-size: 13px; font-weight: 700; color: var(--text-color); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* Image column wrapper (image + thumbs stacked) */
+.custom-modal-img-col {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* ── History sections inline under header ── */
+.custom-modal-histories {
+  padding: 12px 24px 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Body sections (description, specs, youtube) ── */
+.custom-modal-body {
+  padding: 16px 24px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.modal-body-description {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.65;
+  padding-bottom: 16px;
+}
+
+.modal-extra-section {
+  border-top: 1px solid var(--border-color);
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.modal-extra-section h4 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-color);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
 .modal-extra-section ul { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .modal-extra-section ul li { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 .modal-extra-section a { font-size: 14px; color: var(--accent-color); text-decoration: none; font-weight: 600; }
 .modal-extra-section a:hover { text-decoration: underline; }
-.modal-tags-container { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* History section inside hero area */
+.modal-history-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.modal-history-section h4 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.modal-tags-container { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* ── Price history tags ── */
 .price-tag {
   background: #f1f5f9;
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   font-size: 12px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 80px;
+  gap: 2px;
+  min-width: 72px;
 }
-.price-tag .ph-price { font-weight: 700; color: var(--primary-color); font-size: 13px; }
-.price-tag .ph-date  { font-style: normal; color: var(--text-muted); font-size: 11px; }
-/* Country badge: small pill with subtle background */
+.price-tag .ph-price   { font-weight: 700; color: var(--primary-color); font-size: 13px; }
+.price-tag .ph-date    { font-style: normal; color: var(--text-muted); font-size: 10px; }
 .price-tag .ph-country {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 600;
-  color: #334155;
-  background: #e2e8f0;
-  border-radius: 4px;
-  padding: 1px 5px;
-  display: inline-block;
-  width: fit-content;
-  letter-spacing: 0.3px;
+  font-style: normal; font-size: 10px; font-weight: 600;
+  color: #334155; background: #e2e8f0;
+  border-radius: 4px; padding: 1px 5px;
+  display: inline-block; width: fit-content; letter-spacing: 0.3px;
 }
 
 /* Lidl+ history tags */
 .lidl-tag { background: #fff8dc; }
-.lidl-tag .ph-price { color: var(--lidl-blue); }
-.lidl-tag .ph-country {
-  background: #fef3c7;
-  color: var(--lidl-blue);
-}
+.lidl-tag .ph-price   { color: var(--lidl-blue); }
+.lidl-tag .ph-country { background: #fef3c7; color: var(--lidl-blue); }
 
 /* ── Footer ── */
 .site-footer { background: var(--primary-color); color: rgba(255,255,255,0.7); padding: 20px 35px; margin-top: 40px; }
@@ -248,14 +386,17 @@ min-height: calc(100vh - 80px - 60px);
 .footer-disclaimer strong { color: rgba(255,255,255,0.9); }
 
 /* ── Responsive ── */
-@media (max-width: 900px) {
-.custom-modal-wrapper { grid-template-columns: 1fr; }
-.custom-modal-media { border-radius: 12px 12px 0 0; }
+@media (max-width: 600px) {
+  .custom-modal-hero { flex-direction: column; align-items: center; text-align: center; padding: 16px 16px 0; }
+  .custom-modal-header { align-items: center; }
+  .custom-modal-pricing { justify-content: center; }
+  .custom-modal-histories { padding: 10px 16px 0; }
+  .custom-modal-body { padding: 12px 16px 20px; }
 }
 @media (max-width: 768px) {
-.full-screen-layout { grid-template-columns: 1fr; padding: 15px; }
-.left-sidebar { display: none; }
-.search-bar input { max-width: 100%; }
-.header-content { flex-wrap: wrap; }
-.logo-area h1 { font-size: 18px; }
+  .full-screen-layout { grid-template-columns: 1fr; padding: 15px; }
+  .left-sidebar { display: none; }
+  .search-bar input { max-width: 100%; }
+  .header-content { flex-wrap: wrap; }
+  .logo-area h1 { font-size: 18px; }
 }

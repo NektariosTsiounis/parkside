@@ -98,7 +98,7 @@ foreach ($greekRows as $id => $gr) {
     $displayDate  = formatDate(cleanCell($m[2] ?? ''));
     $lidlPlus     = cleanCell($m[3] ?? '') ?: null;
     $priceHistory = cleanCell($m[4] ?? '') ?: null;
-    $lidlHistory  = cleanCell($m[5] ?? '') ?: null;  // LidlPlus_Price_History
+    $lidlHistory  = cleanCell($m[5] ?? '') ?: null;
     $imageRaw     = cleanCell($m[6] ?? '');
     $image2Raw    = cleanCell($m[7] ?? '');
     $youtube      = cleanCell($m[8] ?? '') ?: null;
@@ -339,19 +339,26 @@ ksort($sidebarMenu);
 
 </div>
 
-<!-- Modal -->
+<!-- ══════════ MODAL ══════════ -->
 <div id="productModal" class="custom-modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="custom-modal-window">
         <button class="custom-modal-close" aria-label="Close">&times;</button>
-        <div class="custom-modal-wrapper">
-            <div class="custom-modal-media">
-                <img id="modalImage" src="" alt="" loading="lazy">
+
+        <!-- Hero: image + title/price/history -->
+        <div class="custom-modal-hero">
+            <!-- Image column -->
+            <div class="custom-modal-img-col">
+                <div class="custom-modal-image-wrap">
+                    <img id="modalImage" src="" alt="" loading="lazy">
+                </div>
                 <div id="modalThumbs" class="modal-thumbs" style="display:none;">
                     <img id="modalThumb1" src="" alt="Image 1" class="modal-thumb active" data-idx="0">
                     <img id="modalThumb2" src="" alt="Image 2" class="modal-thumb" data-idx="1">
                 </div>
             </div>
-            <div class="custom-modal-info">
+
+            <!-- Header info column -->
+            <div class="custom-modal-header">
                 <div class="custom-modal-crumbs" id="modalBreadcrumbs"></div>
                 <h2 id="modalTitle"></h2>
                 <div class="custom-modal-pricing">
@@ -359,34 +366,38 @@ ksort($sidebarMenu);
                     <span id="modalDate" class="price-date modal-price-date" style="display:none;"></span>
                     <p id="modalLidlBadge" class="l-plus-badge" style="display:none;">💳 Lidl Plus</p>
                 </div>
-                <p id="modalDescription" class="modal-body-description"></p>
 
-                <!-- Lidl+ Price History -->
-                <div id="modalLidlHistory" class="modal-extra-section" style="display:none;">
-                    <h4 class="i18n" data-el="💳 Ιστορικό Lidl Plus" data-en="💳 Lidl Plus History">💳 Ιστορικό Lidl Plus</h4>
-                    <div id="modalLidlHistoryTags" class="modal-tags-container"></div>
-                </div>
-
-                <!-- Regular Price History -->
-                <div id="modalPriceHistory" class="modal-extra-section" style="display:none;">
+                <!-- Price History inline -->
+                <div id="modalPriceHistory" class="modal-history-section" style="display:none;">
                     <h4 class="i18n" data-el="Ιστορικό Τιμών" data-en="Price History">Ιστορικό Τιμών</h4>
                     <div id="modalHistoryTags" class="modal-tags-container"></div>
                 </div>
 
-                <!-- Tech Specs -->
-                <div id="modalSpecs" class="modal-extra-section" style="display:none;">
-                    <h4 class="i18n" data-el="Τεχνικά Χαρακτηριστικά" data-en="Technical Specifications">Τεχνικά Χαρακτηριστικά</h4>
-                    <ul id="modalSpecsList"></ul>
+                <!-- Lidl+ History inline -->
+                <div id="modalLidlHistory" class="modal-history-section" style="display:none;">
+                    <h4 class="i18n" data-el="💳 Ιστορικό Lidl Plus" data-en="💳 Lidl Plus History">💳 Ιστορικό Lidl Plus</h4>
+                    <div id="modalLidlHistoryTags" class="modal-tags-container"></div>
                 </div>
+            </div>
+        </div>
 
-                <!-- YouTube -->
-                <div id="modalYoutube" class="modal-extra-section" style="display:none;">
-                    <h4>Video</h4>
-                    <a id="modalYoutubeLink" href="" target="_blank" rel="noopener"
-                        class="i18n" data-el="📺 Δείτε το Video στο YouTube" data-en="📺 Watch on YouTube">
-                        📺 Δείτε το Video στο YouTube
-                    </a>
-                </div>
+        <!-- Body: description + specs + youtube -->
+        <div class="custom-modal-body">
+            <p id="modalDescription" class="modal-body-description"></p>
+
+            <!-- Tech Specs -->
+            <div id="modalSpecs" class="modal-extra-section" style="display:none;">
+                <h4 class="i18n" data-el="Τεχνικά Χαρακτηριστικά" data-en="Technical Specifications">Τεχνικά Χαρακτηριστικά</h4>
+                <ul id="modalSpecsList"></ul>
+            </div>
+
+            <!-- YouTube -->
+            <div id="modalYoutube" class="modal-extra-section" style="display:none;">
+                <h4>Video</h4>
+                <a id="modalYoutubeLink" href="" target="_blank" rel="noopener"
+                    class="i18n" data-el="📺 Δείτε το Video στο YouTube" data-en="📺 Watch on YouTube">
+                    📺 Δείτε το Video στο YouTube
+                </a>
             </div>
         </div>
     </div>
@@ -394,8 +405,6 @@ ksort($sidebarMenu);
 
 <footer class="site-footer">
     <div class="footer-inner">
-
-        <!-- Price source notice -->
         <div class="footer-price-source">
             <span class="footer-flag">🇬🇷</span>
             <span class="footer-flag">🇨🇾</span>
@@ -405,8 +414,6 @@ ksort($sidebarMenu);
                Οι τιμές συλλέγονται από τα καταστήματα <strong>Lidl Ελλάδας</strong> και <strong>Lidl Κύπρου</strong>. Ενδέχεται να διαφέρουν ή να μην είναι ενημερωμένες.
             </p>
         </div>
-
-        <!-- Legal disclaimer -->
         <div class="footer-disclaimer">
             <span class="disclaimer-icon">⚠️</span>
             <p>
@@ -418,7 +425,6 @@ ksort($sidebarMenu);
                 </span>
             </p>
         </div>
-
     </div>
 </footer>
 
