@@ -14,17 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let minPrice = 0, maxPrice = Infinity;
     let searchTimeout;
 
-    // Cache card data
+    // Cache card data — searchableText includes title + all 4 category levels
     const productCardsMap = new Map();
     document.querySelectorAll('.product-card').forEach(card => {
         let allCats = [];
         try { allCats = JSON.parse(card.getAttribute('data-all-categories') || '[]'); } catch(e) {}
+        const title    = card.querySelector('.card-product-title').textContent.toLowerCase();
+        const catsText = allCats.map(c => c.toLowerCase()).join(' ');
         productCardsMap.set(card, {
             mainCategory:   card.getAttribute('data-category'),
             secondCategory: card.getAttribute('data-second'),
             thirdCategory:  card.getAttribute('data-third'),
             fourthCategory: card.getAttribute('data-fourth'),
-            titleLower: card.querySelector('.card-product-title').textContent.toLowerCase(),
+            titleLower:     title,
+            searchableText: title + ' ' + catsText,   // ← title + all categories combined
             price: parseFloat(card.getAttribute('data-price')) || 0
         });
     });
@@ -34,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ok = (activeMainCategory === 'all' || data.mainCategory === activeMainCategory)
                     && (!activeSecondCategory || data.secondCategory === activeSecondCategory)
                     && (!activeDeepCategory   || data.thirdCategory === activeDeepCategory || data.fourthCategory === activeDeepCategory)
-                    && (searchQuery === '' || data.titleLower.includes(searchQuery))
+                    && (searchQuery === '' || data.searchableText.includes(searchQuery))   // ← searches title + categories
                     && (data.price >= minPrice && data.price <= maxPrice);
             card.style.display = ok ? 'flex' : 'none';
         });
@@ -107,25 +110,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }).filter(Boolean);
     }
 
-    // Parse Lidl Plus history.
-    // Supported formats per pipe-entry:
-    //   "59.99_17/5/26"            → single Lidl price, no regular shown
-    //   "79.99>59.99_17/5/26"      → regular > lidl price on date
-    //   "79.99>59.99"              → regular > lidl price, no date
+    // Parse Lidl Plus history: "79.99>59.99_17/5/26|74.99>64.99_1/3/26"
     function parseLidlHistory(raw) {
         if (!raw) return [];
         return raw.split('|').map(entry => {
             entry = entry.trim();
             if (!entry) return null;
             if (entry.includes('>')) {
-                // "regularPrice>lidlPrice_date"
                 const [regularPart, rest] = entry.split('>', 2);
                 const underIdx = rest.indexOf('_');
                 const lidlPrice = underIdx !== -1 ? rest.slice(0, underIdx).trim() : rest.trim();
                 const date      = underIdx !== -1 ? rest.slice(underIdx + 1).trim() : '';
                 return { regular: regularPart.trim(), lidl: lidlPrice, date };
             } else {
-                // plain "59.99_date" or "59.99"
                 const parts = entry.split('_');
                 return { regular: null, lidl: parts[0].trim(), date: parts[1] ? parts[1].trim() : '' };
             }
@@ -151,8 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
             modalLidlBadge.style.display = 'none';
         }
 
-        modalDateEl.textContent    = product.date || '';
-        modalDateEl.style.display  = product.date ? 'inline' : 'none';
+        modalDateEl.textContent   = product.date || '';
+        modalDateEl.style.display = product.date ? 'inline' : 'none';
 
         document.getElementById('modalDescription').textContent = product.description;
 
