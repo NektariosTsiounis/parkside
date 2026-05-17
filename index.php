@@ -21,11 +21,6 @@ function cleanCell($v) {
     return trim($v ?? '', " \t\n\r\0\x0B\"");
 }
 
-/**
- * Parse a date string from the CSV.
- * Tries the two formats actually used (j/n/Y and d/m/Y).
- * Falls back to returning the raw string unchanged.
- */
 function formatDate($raw) {
     $raw = trim($raw);
     if (empty($raw)) return '';
@@ -78,7 +73,6 @@ foreach ($greekRows as $id => $gr) {
     $m  = $mainRows[$id]    ?? [];
     $en = $englishRows[$id] ?? [];
 
-    // Greek
     $desc    = cleanCell($gr[2] ?? '');
     $specs   = cleanCell($gr[3] ?? '');
     $mainCat = cleanCell($gr[4] ?? '') ?: 'Γενικά';
@@ -86,7 +80,6 @@ foreach ($greekRows as $id => $gr) {
     $thrCat  = cleanCell($gr[6] ?? '');
     $forCat  = cleanCell($gr[7] ?? '');
 
-    // English
     $titleEN   = cleanCell($en[1] ?? '');
     $descEN    = cleanCell($en[2] ?? '');
     $specsEN   = cleanCell($en[3] ?? '');
@@ -95,7 +88,6 @@ foreach ($greekRows as $id => $gr) {
     $thrCatEN  = cleanCell($en[6] ?? '');
     $forCatEN  = cleanCell($en[7] ?? '');
 
-    // main.csv: ID[0] Price[1] Date[2] LidlPlus[3] PriceHistory[4] LidlPlusHistory[5] Image[6] OtherImage[7] Youtube[8]
     $rawPrice     = cleanCell($m[1] ?? '');
     $price        = str_replace(',', '.', $rawPrice);
     $displayDate  = formatDate(cleanCell($m[2] ?? ''));
@@ -115,7 +107,6 @@ foreach ($greekRows as $id => $gr) {
 
     $allCats = array_values(array_filter([$mainCat, $secCat, $thrCat, $forCat]));
 
-    // sidebar
     if (!isset($sidebarMenu[$mainCat])) {
         $sidebarMenu[$mainCat] = ['_en'=>$mainCatEN,'_subs'=>[],'_en_subs'=>[],'_deepsubs'=>[],'_en_deepsubs'=>[]];
     }
@@ -182,7 +173,6 @@ ksort($sidebarMenu);
         <div class="search-bar">
             <input type="text" id="searchInput" placeholder="Αναζήτηση προϊόντος...">
         </div>
-        <!-- Filters button: visible only on mobile -->
         <button class="mobile-filter-btn" id="mobileFilterBtn" aria-label="Open filters">
             &#9776; <span class="i18n" data-el="Φίλτρα" data-en="Filters">Φίλτρα</span>
         </button>
@@ -193,13 +183,11 @@ ksort($sidebarMenu);
     </div>
 </header>
 
-<!-- Overlay behind mobile sidebar -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <div class="full-screen-layout">
 
     <aside class="left-sidebar" id="leftSidebar">
-        <!-- Close button inside drawer (mobile only) -->
         <div class="sidebar-close-btn">
             <button id="sidebarCloseBtn" aria-label="Close filters">&times;</button>
         </div>
@@ -280,7 +268,6 @@ ksort($sidebarMenu);
         </div>
     </aside>
 
-    <!-- Show Results button — OUTSIDE the aside so position:fixed works correctly on mobile -->
     <div class="sidebar-apply-bar" id="sidebarApplyBar">
         <button id="sidebarApplyBtn" class="sidebar-apply-btn i18n"
                 data-el="Εμφάνιση Αποτελεσμάτων" data-en="Show Results"
@@ -424,21 +411,18 @@ ksort($sidebarMenu);
         <div class="footer-price-source">
             <span class="footer-flag">🇬🇷</span>
             <span class="footer-flag">🇨🇾</span>
-            <p class="i18n"
-               data-el="Οι τιμές συλλέγονται από τα καταστήματα Lidl Ελλάδας και Κύπρου. Ενδέχεται να διαφέρουν ή να μην είναι ενημερωμένες."
-               data-en="Prices are collected from Lidl Greece and Lidl Cyprus stores. They may vary or not always be up to date.">
+            <p class="i18n-html"
+               data-el="Οι τιμές συλλέγονται από τα καταστήματα &lt;strong&gt;Lidl Ελλάδας&lt;/strong&gt; και &lt;strong&gt;Lidl Κύπρου&lt;/strong&gt;. Ενδέχεται να διαφέρουν ή να μην είναι ενημερωμένες."
+               data-en="Prices are collected from &lt;strong&gt;Lidl Greece&lt;/strong&gt; and &lt;strong&gt;Lidl Cyprus&lt;/strong&gt; stores. They may vary or not always be up to date.">
                Οι τιμές συλλέγονται από τα καταστήματα <strong>Lidl Ελλάδας</strong> και <strong>Lidl Κύπρου</strong>. Ενδέχεται να διαφέρουν ή να μην είναι ενημερωμένες.
             </p>
         </div>
         <div class="footer-disclaimer">
             <span class="disclaimer-icon">⚠️</span>
-            <p>
-                <strong class="i18n" data-el="Ανεξάρτητος Κατάλογος." data-en="Independent Catalog.">Ανεξάρτητος Κατάλογος.</strong>
-                <span class="i18n"
-                    data-el="Αυτός ο κατάλογος δημιουργήθηκε από ιδιώτη χωρίς σχέση με Parkside ή Lidl. Όλα τα εμπορικά σήματα ανήκουν στους κατόχους τους."
-                    data-en="This catalog was created by a private individual with no affiliation to Parkside or Lidl. All trademarks belong to their respective owners.">
-                    Αυτός ο κατάλογος δημιουργήθηκε από ιδιώτη χωρίς σχέση με <strong>Parkside</strong> ή <strong>Lidl</strong>. Όλα τα εμπορικά σήματα ανήκουν στους κατόχους τους.
-                </span>
+            <p class="i18n-html"
+               data-el="&lt;strong&gt;Ανεξάρτητος Κατάλογος.&lt;/strong&gt; Αυτός ο κατάλογος δημιουργήθηκε από ιδιώτη χωρίς σχέση με &lt;strong&gt;Parkside&lt;/strong&gt; ή &lt;strong&gt;Lidl&lt;/strong&gt;. Όλα τα εμπορικά σήματα ανήκουν στους κατόχους τους."
+               data-en="&lt;strong&gt;Independent Catalog.&lt;/strong&gt; This catalog was created by a private individual with no affiliation to &lt;strong&gt;Parkside&lt;/strong&gt; or &lt;strong&gt;Lidl&lt;/strong&gt;. All trademarks belong to their respective owners.">
+                <strong>Ανεξάρτητος Κατάλογος.</strong> Αυτός ο κατάλογος δημιουργήθηκε από ιδιώτη χωρίς σχέση με <strong>Parkside</strong> ή <strong>Lidl</strong>. Όλα τα εμπορικά σήματα ανήκουν στους κατόχους τους.
             </p>
         </div>
     </div>
