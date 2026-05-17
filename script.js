@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
             thirdCategory:  card.getAttribute('data-third'),
             fourthCategory: card.getAttribute('data-fourth'),
             titleLower:     title,
-            searchableText: title + ' ' + catsText,   // ← title + all categories combined
+            searchableText: title + ' ' + catsText,
             price: parseFloat(card.getAttribute('data-price')) || 0
         });
     });
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ok = (activeMainCategory === 'all' || data.mainCategory === activeMainCategory)
                     && (!activeSecondCategory || data.secondCategory === activeSecondCategory)
                     && (!activeDeepCategory   || data.thirdCategory === activeDeepCategory || data.fourthCategory === activeDeepCategory)
-                    && (searchQuery === '' || data.searchableText.includes(searchQuery))   // ← searches title + categories
+                    && (searchQuery === '' || data.searchableText.includes(searchQuery))
                     && (data.price >= minPrice && data.price <= maxPrice);
             card.style.display = ok ? 'flex' : 'none';
         });
@@ -97,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuTree = document.querySelector('.menu-tree');
     if (menuTree) menuTree.addEventListener('click', e => { const btn = e.target.closest('.filter-btn'); if (btn) handleFilterClick(btn); });
 
-    // Parse regular price history: "27.99_17/5/26|24.99_1/3/26"
     function parsePriceHistory(raw) {
         if (!raw) return [];
         return raw.split('|').map(entry => {
@@ -110,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }).filter(Boolean);
     }
 
-    // Parse Lidl Plus history: "79.99>59.99_17/5/26|74.99>64.99_1/3/26"
     function parseLidlHistory(raw) {
         if (!raw) return [];
         return raw.split('|').map(entry => {
@@ -129,8 +127,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }).filter(Boolean);
     }
 
+    // ── Image gallery logic ──
+    const modalImageEl = document.getElementById('modalImage');
+    const modalThumbsEl = document.getElementById('modalThumbs');
+    const modalThumb1  = document.getElementById('modalThumb1');
+    const modalThumb2  = document.getElementById('modalThumb2');
+    let galleryImages  = [];
+
+    function setActiveImage(idx) {
+        modalImageEl.src = galleryImages[idx];
+        modalThumb1.classList.toggle('active', idx === 0);
+        modalThumb2.classList.toggle('active', idx === 1);
+    }
+
+    modalThumb1.addEventListener('click', () => setActiveImage(0));
+    modalThumb2.addEventListener('click', () => setActiveImage(1));
+
     function openProductModal(product) {
-        document.getElementById('modalImage').src = product.image;
+        // Gallery setup
+        galleryImages = [product.image];
+        if (product.second_image) galleryImages.push(product.second_image);
+
+        modalImageEl.src = galleryImages[0];
+        modalImageEl.alt = product.title;
+
+        if (galleryImages.length > 1) {
+            modalThumb1.src = galleryImages[0];
+            modalThumb2.src = galleryImages[1];
+            modalThumb1.classList.add('active');
+            modalThumb2.classList.remove('active');
+            modalThumbsEl.style.display = 'flex';
+        } else {
+            modalThumbsEl.style.display = 'none';
+        }
 
         const crumbs = [product.main_category, product.second_category, product.third_category, product.fourth_category].filter(Boolean);
         document.getElementById('modalBreadcrumbs').textContent = crumbs.join(' › ');
@@ -153,7 +182,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('modalDescription').textContent = product.description;
 
-        // Lidl Plus offer history
         const lidlHistoryEl = document.getElementById('modalLidlHistory');
         const lidlTagsEl    = document.getElementById('modalLidlHistoryTags');
         const lidlEntries   = parseLidlHistory(product.lidl_raw);
@@ -179,7 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lidlHistoryEl.style.display = 'none';
         }
 
-        // Regular price history
         const priceHistoryEl = document.getElementById('modalPriceHistory');
         const historyTagsEl  = document.getElementById('modalHistoryTags');
         const historyEntries = parsePriceHistory(product.price_history);
@@ -195,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
             priceHistoryEl.style.display = 'none';
         }
 
-        // Specs
         if (product.tech_specs) {
             const specsListEl = document.getElementById('modalSpecsList');
             specsListEl.innerHTML = '';
@@ -203,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('modalSpecs').style.display = 'block';
         } else { document.getElementById('modalSpecs').style.display = 'none'; }
 
-        // YouTube
         if (product.youtube) {
             document.getElementById('modalYoutubeLink').href = product.youtube;
             document.getElementById('modalYoutube').style.display = 'block';

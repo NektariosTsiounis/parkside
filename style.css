@@ -111,6 +111,24 @@ body {
 .custom-modal-pricing { margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
 .modal-body-description { font-size: 14px; margin-bottom: 15px; color: #334155; line-height: 1.5; }
 
+/* Image gallery thumbnails */
+.custom-modal-media { display: flex; flex-direction: column; gap: 10px; }
+.custom-modal-media > img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border-color); }
+.modal-thumbs { display: flex; gap: 8px; }
+.modal-thumb {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    background: #f8fafc;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 4px;
+    transition: border-color 0.15s;
+}
+.modal-thumb.active { border-color: var(--accent-color); }
+.modal-thumb:hover { border-color: var(--primary-color); }
+
 .modal-tags-container { display: flex; flex-wrap: wrap; gap: 6px; }
 .modal-tags-container > span { display: inline-flex; align-items: center; gap: 5px; background-color: #f1f5f9; padding: 4px 10px; border-radius: 4px; font-size: 12px; }
 .modal-tags-container > span strong { color: var(--primary-color); font-weight: 700; }
@@ -126,36 +144,12 @@ body {
 .modal-extra-section li { font-size: 13px; padding: 3px 0; color: #334155; list-style: inside square; }
 .modal-youtube a { display: inline-block; margin-top: 8px; color: var(--accent-color); text-decoration: none; font-weight: bold; font-size: 13px; }
 
-/* ── Footer & Disclaimer ── */
-.site-footer {
-    background-color: var(--primary-color);
-    color: #94a3b8;
-    padding: 22px 35px;
-    margin-top: 0;
-}
-.footer-disclaimer {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    max-width: 900px;
-    margin: 0 auto;
-}
-.disclaimer-icon {
-    font-size: 16px;
-    flex-shrink: 0;
-    margin-top: 2px;
-    opacity: 0.8;
-}
-.footer-disclaimer p {
-    font-size: 12px;
-    line-height: 1.6;
-    color: #94a3b8;
-    max-width: 100%;
-}
-.footer-disclaimer p strong {
-    color: #cbd5e1;
-    font-weight: 600;
-}
+/* Footer & Disclaimer */
+.site-footer { background-color: var(--primary-color); color: #94a3b8; padding: 22px 35px; margin-top: 0; }
+.footer-disclaimer { display: flex; align-items: flex-start; gap: 12px; max-width: 900px; margin: 0 auto; }
+.disclaimer-icon { font-size: 16px; flex-shrink: 0; margin-top: 2px; opacity: 0.8; }
+.footer-disclaimer p { font-size: 12px; line-height: 1.6; color: #94a3b8; max-width: 100%; }
+.footer-disclaimer p strong { color: #cbd5e1; font-weight: 600; }
 
 @media (max-width: 1400px) { .modern-products-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); } }
 @media (max-width: 1024px) {

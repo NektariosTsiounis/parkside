@@ -26,6 +26,21 @@ function formatDate($raw) {
     return $raw;
 }
 
+// Resolve image path from CSV value.
+// Rules:
+//   - empty              → default fallback
+//   - http/https URL     → use as-is
+//   - anything else      → treat as filename, build "Products/{name}.webp"
+//     If that file doesn't exist on disk, fall back to default.
+function resolveImage($raw, $default) {
+    $raw = trim($raw, " \t\n\r\0\x0B\"");
+    if (empty($raw)) return $default;
+    if (strpos($raw, 'http://') === 0 || strpos($raw, 'https://') === 0) return $raw;
+    // Build webp path
+    $path = 'Products/' . $raw . '.webp';
+    return file_exists($path) ? $path : $default;
+}
+
 if (file_exists($csvFile)) {
     ini_set('auto_detect_line_endings', true);
     if (($handle = fopen($csvFile, "r")) !== FALSE) {
@@ -41,12 +56,12 @@ if (file_exists($csvFile)) {
             $displayDate   = !empty($rawDateField) ? formatDate($rawDateField) : formatDate($parsedPrice['date']);
             $desc          = isset($data[3]) ? trim($data[3], "\"") : '';
             $specs         = isset($data[4]) ? trim($data[4], "\"") : '';
-            $imagePath     = isset($data[5]) ? trim($data[5], " \t\n\r\0\x0B\"") : '';
 
-            if (empty($imagePath))                                                                         $finalImage = $defaultImage;
-            elseif (strpos($imagePath,'http://') === 0 || strpos($imagePath,'https://') === 0)             $finalImage = $imagePath;
-            elseif (!file_exists($imagePath))                                                              $finalImage = $defaultImage;
-            else                                                                                           $finalImage = $imagePath;
+            // col[5] = Image_URL (filename without extension → Products/{name}.webp)
+            $finalImage  = resolveImage(isset($data[5]) ? $data[5] : '', $defaultImage);
+
+            // col[13] = second_image (same rule)
+            $secondImage = resolveImage(isset($data[13]) ? $data[13] : '', '');
 
             $mainCat   = isset($data[6]) && !empty(trim($data[6])) ? trim($data[6], " \t\n\r\0\x0B\"") : 'Γενικά';
             $secondCat = isset($data[7]) && !empty(trim($data[7])) ? trim($data[7], " \t\n\r\0\x0B\"") : '';
@@ -94,6 +109,7 @@ if (file_exists($csvFile)) {
                 'description'     => $desc,
                 'tech_specs'      => $specs,
                 'image'           => $finalImage,
+                'second_image'    => $secondImage,
                 'main_category'   => $mainCat,
                 'second_category' => $secondCat,
                 'third_category'  => $thirdCat,
@@ -206,6 +222,7 @@ ksort($sidebarMenu);
                     'description'     => $product['description'],
                     'tech_specs'      => $product['tech_specs'],
                     'image'           => $product['image'],
+                    'second_image'    => $product['second_image'],
                     'main_category'   => $product['main_category'],
                     'second_category' => $product['second_category'],
                     'third_category'  => $product['third_category'],
@@ -256,7 +273,13 @@ ksort($sidebarMenu);
         <button class="custom-modal-close">&times;</button>
         <div class="custom-modal-wrapper">
             <div class="custom-modal-media">
-                <img id="modalImage" src="" alt="">
+                <!-- Main image (clickable to switch) -->
+                <img id="modalImage" src="" alt="" loading="lazy">
+                <!-- Thumbnail strip: shown only when second_image exists -->
+                <div id="modalThumbs" class="modal-thumbs" style="display:none;">
+                    <img id="modalThumb1" src="" alt="Εικόνα 1" class="modal-thumb active" data-idx="0">
+                    <img id="modalThumb2" src="" alt="Εικόνα 2" class="modal-thumb" data-idx="1">
+                </div>
             </div>
             <div class="custom-modal-info">
                 <div class="custom-modal-crumbs" id="modalBreadcrumbs"></div>
