@@ -2,9 +2,6 @@
 $csvFile = 'Parkside.csv';
 $products = [];
 $defaultImage = 'Media/Default/parkside.png';
-// sidebarMenu structure:
-// $sidebarMenu[$mainCat]['_subs'][] = $secondCat
-// $sidebarMenu[$mainCat]['_deepsubs'][$secondCat][] = $thirdCat or $fourthCat
 $sidebarMenu = [];
 
 if (file_exists($csvFile)) {
@@ -38,7 +35,6 @@ if (file_exists($csvFile)) {
             $thirdCat  = isset($data[8]) && !empty(trim($data[8])) ? trim($data[8], " \t\n\r\0\x0B\"") : '';
             $fourthCat = isset($data[9]) && !empty(trim($data[9])) ? trim($data[9], " \t\n\r\0\x0B\"") : '';
 
-            // Build sidebar menu tree
             if (!empty($mainCat)) {
                 if (!isset($sidebarMenu[$mainCat])) {
                     $sidebarMenu[$mainCat] = ['_subs' => [], '_deepsubs' => []];
@@ -46,7 +42,6 @@ if (file_exists($csvFile)) {
                 if (!empty($secondCat) && !in_array($secondCat, $sidebarMenu[$mainCat]['_subs'])) {
                     $sidebarMenu[$mainCat]['_subs'][] = $secondCat;
                 }
-                // Third and fourth categories nest under secondCat
                 if (!empty($secondCat)) {
                     if (!isset($sidebarMenu[$mainCat]['_deepsubs'][$secondCat])) {
                         $sidebarMenu[$mainCat]['_deepsubs'][$secondCat] = [];
@@ -183,13 +178,19 @@ ksort($sidebarMenu);
                         $jsPrice = floatval(str_replace(['€', ' ', ','], ['', '', '.'], $product['price']));
                         $jsLidlPrice = $product['lidl_plus'] ? floatval(str_replace(['€', ' ', ','], ['', '', '.'], $product['lidl_plus'])) : null;
                         $activeFilterPrice = $jsLidlPrice ?? $jsPrice;
-                        // All categories as JSON array for flexible filtering
                         $allCats = array_filter([
                             $product['main_category'],
                             $product['second_category'],
                             $product['third_category'],
                             $product['fourth_category']
                         ]);
+                        // Format date for display: convert M/D/YYYY to D/M/YY
+                        $displayDate = '';
+                        if (!empty($product['date'])) {
+                            $d = DateTime::createFromFormat('n/j/Y', $product['date']);
+                            if ($d) $displayDate = $d->format('j/n/y');
+                            else $displayDate = $product['date'];
+                        }
                     ?>
                     <article class="product-card"
                          data-category="<?php echo htmlspecialchars($product['main_category']); ?>"
@@ -201,6 +202,7 @@ ksort($sidebarMenu);
                          data-product-json="<?php echo htmlspecialchars(json_encode([
                             'title'           => $product['title'],
                             'price'           => $product['price'],
+                            'date'            => $displayDate,
                             'lidl_plus'       => $product['lidl_plus'],
                             'description'     => $product['description'],
                             'tech_specs'      => $product['tech_specs'],
@@ -221,13 +223,23 @@ ksort($sidebarMenu);
                             <h3 class="card-product-title"><?php echo htmlspecialchars($product['title']); ?></h3>
                             <div class="card-price-block">
                                 <?php if ($product['lidl_plus']): ?>
-                                    <p class="card-price sale-active">
-                                        <span class="was-price"><?php echo htmlspecialchars($product['price']); ?> €</span>
-                                        <span class="now-price"><?php echo htmlspecialchars($product['lidl_plus']); ?> €</span>
-                                    </p>
+                                    <div class="price-date-row">
+                                        <p class="card-price sale-active">
+                                            <span class="was-price"><?php echo htmlspecialchars($product['price']); ?> €</span>
+                                            <span class="now-price"><?php echo htmlspecialchars($product['lidl_plus']); ?> €</span>
+                                        </p>
+                                        <?php if ($displayDate): ?>
+                                            <span class="price-date"><?php echo htmlspecialchars($displayDate); ?></span>
+                                        <?php endif; ?>
+                                    </div>
                                     <span class="l-plus-badge">💳 Lidl Plus</span>
                                 <?php else: ?>
-                                    <p class="card-price"><?php echo htmlspecialchars($product['price']); ?> €</p>
+                                    <div class="price-date-row">
+                                        <p class="card-price"><?php echo htmlspecialchars($product['price']); ?> €</p>
+                                        <?php if ($displayDate): ?>
+                                            <span class="price-date"><?php echo htmlspecialchars($displayDate); ?></span>
+                                        <?php endif; ?>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                             <div class="card-btn-action">Δείτε Περισσότερα &rarr;</div>
@@ -250,7 +262,10 @@ ksort($sidebarMenu);
                     <div class="custom-modal-crumbs" id="modalBreadcrumbs"></div>
                     <h2 id="modalTitle"></h2>
                     <div class="custom-modal-pricing">
-                        <p id="modalPrice" class="modal-price-output"></p>
+                        <div class="price-date-row">
+                            <p id="modalPrice" class="modal-price-output"></p>
+                            <span id="modalDate" class="price-date modal-price-date"></span>
+                        </div>
                         <p id="modalLidlBadge" class="l-plus-badge" style="display:none;">💳 Lidl Plus</p>
                     </div>
                     <p id="modalDescription" class="modal-body-description"></p>

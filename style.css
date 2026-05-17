@@ -17,7 +17,6 @@ body {
     overflow-x: hidden;
 }
 
-/* Header - Πιάνει το 100% του πλάτους */
 .main-header {
     background-color: var(--primary-color);
     color: white;
@@ -48,21 +47,17 @@ body {
     outline: none;
 }
 
-/* ΑΠΟΛΥΤΟ FULL SCREEN LAYOUT 
-   Καταργεί οποιοδήποτε "max-width: 1200px" και απλώνεται σε όλη την οθόνη 
-*/
 .full-screen-layout {
     display: grid;
-    grid-template-columns: 250px 1fr; /* 250px η sidebar, όλος ο υπόλοιπος χώρος στα προϊόντα */
+    grid-template-columns: 250px 1fr;
     gap: 30px;
     padding: 30px 35px;
     width: 100vw;
     margin-left: calc(-50vw + 50%);
     max-width: 100vw;
-    min-height: calc(100vh - 80px - 60px); /* Αφαιρεί το header και footer */
+    min-height: calc(100vh - 80px - 60px);
 }
 
-/* Left Sidebar Panels */
 .left-sidebar {
     display: flex;
     flex-direction: column;
@@ -86,7 +81,6 @@ body {
     border-bottom: 2px solid #f1f5f9;
 }
 
-/* Navigation Accordion Tree */
 .menu-tree { display: flex; flex-direction: column; gap: 4px; }
 
 .main-cat-toggle {
@@ -101,18 +95,35 @@ body {
 
 .arrow { font-size: 10px; transition: transform 0.2s; color: var(--text-muted); }
 .arrow.rotated { transform: rotate(180deg); }
+.arrow-deep { font-size: 9px; transition: transform 0.2s; color: var(--text-muted); margin-left: 4px; }
+.arrow-deep.rotated { transform: rotate(180deg); }
 
 .sub-menu {
-    max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out;
+    max-height: 0; overflow: hidden; transition: max-height 0.25s ease-out;
     display: flex; flex-direction: column; gap: 2px; padding-left: 10px;
 }
-.sub-menu.open { max-height: 500px; margin-top: 4px; margin-bottom: 6px; }
+.sub-menu.open { max-height: 600px; margin-top: 4px; margin-bottom: 6px; }
 
 .sub-cat-btn {
     width: 100%; text-align: left; padding: 7px 12px; background: transparent;
     border: none; font-size: 13px; cursor: pointer; color: var(--text-muted); border-radius: 4px;
+    display: flex; justify-content: space-between; align-items: center;
 }
 .sub-cat-btn:hover, .sub-cat-btn.active {
+    background-color: #f8fafc; color: var(--accent-color); font-weight: 600;
+}
+
+.deep-sub-menu {
+    max-height: 0; overflow: hidden; transition: max-height 0.2s ease-out;
+    display: flex; flex-direction: column; gap: 1px; padding-left: 10px;
+}
+.deep-sub-menu.open { max-height: 300px; margin-top: 2px; margin-bottom: 4px; }
+
+.deep-cat-btn {
+    width: 100%; text-align: left; padding: 5px 10px; background: transparent;
+    border: none; font-size: 12px; cursor: pointer; color: var(--text-muted); border-radius: 4px;
+}
+.deep-cat-btn:hover, .deep-cat-btn.active {
     background-color: #f8fafc; color: var(--accent-color); font-weight: 600;
 }
 
@@ -122,7 +133,6 @@ body {
 }
 .filter-btn[data-category="all"].active { background-color: var(--primary-color); color: white; }
 
-/* Clean Price Rows */
 .price-inputs-flex { display: flex; align-items: center; gap: 8px; }
 .input-container { position: relative; flex: 1; }
 .input-container input {
@@ -133,16 +143,14 @@ body {
 .currency { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-muted); }
 .dash { color: var(--text-muted); font-size: 14px; }
 
-/* ΠΛΕΓΜΑ ΠΡΟΪΟΝΤΩΝ: Απλώνεται ελεύθερα σχηματίζοντας 4+ στήλες */
 .products-view-zone { width: 100%; }
 .modern-products-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* 280px minmax για σταθερά 4 προϊόντα ανά σειρά */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 22px;
     width: 100%;
 }
 
-/* Product Card Elements */
 .product-card {
     background: var(--card-bg);
     border-radius: 8px; overflow: hidden;
@@ -164,9 +172,37 @@ body {
 .card-product-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; line-height: 1.4; height: 38px; overflow: hidden; color: var(--text-color); }
 
 .card-price-block { margin-bottom: 12px; display: flex; flex-direction: column; gap: 3px; }
+
+/* Price + date inline row */
+.price-date-row {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
 .card-price { font-size: 18px; font-weight: 700; color: var(--primary-color); }
 .was-price { text-decoration: line-through; color: var(--text-muted); font-size: 12px; margin-right: 4px; font-weight: 400; }
 .sale-active .now-price { color: var(--accent-color); }
+
+/* Small date label next to price */
+.price-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 400;
+    white-space: nowrap;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.2px;
+}
+.modal-price-date {
+    font-size: 12px;
+    background: #f1f5f9;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
 .l-plus-badge { background-color: #fef2f2; color: var(--accent-color); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; width: fit-content; }
 
 .card-btn-action {
@@ -175,7 +211,7 @@ body {
 }
 .product-card:hover .card-btn-action { background-color: var(--primary-color); color: white; }
 
-/* Modal Window Style */
+/* Modal */
 .custom-modal-backdrop { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(3px); }
 .custom-modal-backdrop.show { display: flex; align-items: center; justify-content: center; }
 .custom-modal-window { background-color: var(--card-bg); border-radius: 10px; max-width: 800px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; }
@@ -187,27 +223,28 @@ body {
 .modal-price-output .was-price { font-size: 14px; }
 .modal-price-output .now-price { color: var(--accent-color); }
 .modal-body-description { font-size: 14px; margin-bottom: 15px; color: #334155; line-height: 1.5; }
-.modal-tags-container span { display: inline-block; background-color: #f1f5f9; padding: 4px 8px; border-radius: 4px; margin-right: 6px; font-size: 12px; font-weight: 600; }
+
+/* Price history tags — price bold, date italic/muted */
+.modal-tags-container { display: flex; flex-wrap: wrap; gap: 6px; }
+.modal-tags-container span {
+    display: inline-flex; align-items: center; gap: 5px;
+    background-color: #f1f5f9; padding: 4px 10px;
+    border-radius: 4px; font-size: 12px;
+}
+.modal-tags-container span strong { color: var(--primary-color); font-weight: 700; }
+.modal-tags-container span em { color: var(--text-muted); font-style: normal; font-size: 11px; }
+
 .modal-extra-section h4 { font-size: 13px; text-transform: uppercase; margin-bottom: 6px; margin-top: 12px; color: var(--text-muted); }
 .modal-extra-section li { font-size: 13px; padding: 3px 0; color: #334155; list-style: inside square; }
 .modal-youtube a { display: inline-block; margin-top: 8px; color: var(--accent-color); text-decoration: none; font-weight: bold; font-size: 13px; }
 
-/* Breakpoints */
 @media (max-width: 1400px) {
-    .modern-products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); /* Legit slight adjustment for smaller desktops */
-    }
+    .modern-products-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 }
 
 @media (max-width: 1024px) {
-    .full-screen-layout { 
-        grid-template-columns: 1fr; 
-        gap: 20px;
-        padding: 20px; 
-    }
+    .full-screen-layout { grid-template-columns: 1fr; gap: 20px; padding: 20px; }
     .search-bar input { width: 100%; }
     .custom-modal-wrapper { grid-template-columns: 1fr; padding: 20px; }
-    .modern-products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    }
+    .modern-products-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 }
