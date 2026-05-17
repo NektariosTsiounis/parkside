@@ -4,7 +4,6 @@ $products = [];
 $defaultImage = 'Media/Default/parkside.png';
 $sidebarMenu = [];
 
-// Extract numeric price and optional date from a raw field like "27.99_17/5/26" or "27,99"
 function parseRawPrice($raw) {
     $raw = trim($raw, " \t\n\r\0\x0B\"");
     if (strpos($raw, '_') !== false) {
@@ -18,13 +17,10 @@ function parseRawPrice($raw) {
     return ['price' => $price, 'date' => $date];
 }
 
-// Format a raw date string (M/D/YYYY or M/D/YY) to D/M/YY
 function formatDate($raw) {
     if (empty($raw)) return '';
-    // Try M/D/YYYY
     $d = DateTime::createFromFormat('n/j/Y', $raw);
     if ($d) return $d->format('j/n/y');
-    // Try M/D/YY already short
     $d = DateTime::createFromFormat('n/j/y', $raw);
     if ($d) return $d->format('j/n/y');
     return $raw;
@@ -37,25 +33,20 @@ if (file_exists($csvFile)) {
         while (($data = fgetcsv($handle, 0, ",")) !== FALSE) {
             if (empty($data) || !isset($data[0]) || empty(trim($data[0]))) continue;
 
-            $title     = trim($data[0], " \t\n\r\0\x0B\"");
-
-            // Price may embed date: "69.99_17/5/26" — split cleanly
+            $title         = trim($data[0], " \t\n\r\0\x0B\"");
             $rawPriceField = isset($data[1]) ? trim($data[1], " \t\n\r\0\x0B\"") : '0';
             $parsedPrice   = parseRawPrice($rawPriceField);
-            $price         = $parsedPrice['price'];   // numeric string e.g. "69.99"
+            $price         = $parsedPrice['price'];
+            $rawDateField  = isset($data[2]) ? trim($data[2], " \t\n\r\0\x0B\"") : '';
+            $displayDate   = !empty($rawDateField) ? formatDate($rawDateField) : formatDate($parsedPrice['date']);
+            $desc          = isset($data[3]) ? trim($data[3], "\"") : '';
+            $specs         = isset($data[4]) ? trim($data[4], "\"") : '';
+            $imagePath     = isset($data[5]) ? trim($data[5], " \t\n\r\0\x0B\"") : '';
 
-            // Date of price: prefer col[2], fallback to embedded date in price field
-            $rawDateField = isset($data[2]) ? trim($data[2], " \t\n\r\0\x0B\"") : '';
-            $displayDate  = !empty($rawDateField) ? formatDate($rawDateField) : formatDate($parsedPrice['date']);
-
-            $desc      = isset($data[3]) ? trim($data[3], "\"") : '';
-            $specs     = isset($data[4]) ? trim($data[4], "\"") : '';
-            $imagePath = isset($data[5]) ? trim($data[5], " \t\n\r\0\x0B\"") : '';
-
-            if (empty($imagePath))                                                    $finalImage = $defaultImage;
-            elseif (strpos($imagePath,'http://') === 0 || strpos($imagePath,'https://') === 0) $finalImage = $imagePath;
-            elseif (!file_exists($imagePath))                                         $finalImage = $defaultImage;
-            else                                                                       $finalImage = $imagePath;
+            if (empty($imagePath))                                                                         $finalImage = $defaultImage;
+            elseif (strpos($imagePath,'http://') === 0 || strpos($imagePath,'https://') === 0)             $finalImage = $imagePath;
+            elseif (!file_exists($imagePath))                                                              $finalImage = $defaultImage;
+            else                                                                                           $finalImage = $imagePath;
 
             $mainCat   = isset($data[6]) && !empty(trim($data[6])) ? trim($data[6], " \t\n\r\0\x0B\"") : 'Γενικά';
             $secondCat = isset($data[7]) && !empty(trim($data[7])) ? trim($data[7], " \t\n\r\0\x0B\"") : '';
@@ -74,38 +65,27 @@ if (file_exists($csvFile)) {
                     $sidebarMenu[$mainCat]['_deepsubs'][$secondCat][] = $fourthCat;
             }
 
-            // Price history col[10]: pipe-separated "price_date" entries
             $priceHistory = isset($data[10]) && !empty(trim($data[10])) ? trim($data[10], " \t\n\r\0\x0B\"") : null;
+            $lidlRaw      = isset($data[11]) && !empty(trim($data[11])) ? trim($data[11], " \t\n\r\0\x0B\"") : null;
 
-            // Lidl Plus col[11]: can be a single value OR pipe-separated "regularPrice>lidlPrice_date" entries
-            // Formats supported:
-            //   simple value:        "59.99"
-            //   single with date:    "59.99_17/5/26"
-            //   multi-entry history: "79.99>69.99_17/5/26|74.99>64.99_1/3/26"
-            $lidlRaw = isset($data[11]) && !empty(trim($data[11])) ? trim($data[11], " \t\n\r\0\x0B\"") : null;
-
-            // Determine current Lidl Plus price for the card (first/only entry)
             $lidlCurrentPrice = null;
             if ($lidlRaw) {
                 $firstEntry = explode('|', $lidlRaw)[0];
                 if (strpos($firstEntry, '>') !== false) {
-                    // "regularPrice>lidlPrice_date" — extract lidlPrice
                     $sides = explode('>', $firstEntry, 2);
                     $lidlPart = explode('_', $sides[1])[0];
                     $lidlCurrentPrice = trim($lidlPart);
                 } else {
-                    // plain "59.99" or "59.99_17/5/26"
                     $lidlCurrentPrice = parseRawPrice($firstEntry)['price'];
                 }
             }
 
             $youtube = isset($data[12]) && !empty(trim($data[12])) ? trim($data[12], " \t\n\r\0\x0B\"") : null;
 
-            $jsPrice = floatval($price);
-            $jsLidlPrice = $lidlCurrentPrice ? floatval($lidlCurrentPrice) : null;
+            $jsPrice           = floatval($price);
+            $jsLidlPrice       = $lidlCurrentPrice ? floatval($lidlCurrentPrice) : null;
             $activeFilterPrice = $jsLidlPrice ?? $jsPrice;
-
-            $allCats = array_values(array_filter([$mainCat, $secondCat, $thirdCat, $fourthCat]));
+            $allCats           = array_values(array_filter([$mainCat, $secondCat, $thirdCat, $fourthCat]));
 
             $products[] = [
                 'title'           => $title,
@@ -290,13 +270,11 @@ ksort($sidebarMenu);
                 </div>
                 <p id="modalDescription" class="modal-body-description"></p>
 
-                <!-- Lidl Plus offer history -->
                 <div id="modalLidlHistory" class="modal-extra-section" style="display:none;">
                     <h4>💳 Ιστορικό Lidl Plus Προσφορών</h4>
                     <div id="modalLidlHistoryTags" class="modal-tags-container"></div>
                 </div>
 
-                <!-- Regular price history -->
                 <div id="modalPriceHistory" class="modal-extra-section" style="display:none;">
                     <h4>Ιστορικό Τιμών</h4>
                     <div id="modalHistoryTags" class="modal-tags-container"></div>
@@ -313,6 +291,20 @@ ksort($sidebarMenu);
         </div>
     </div>
 </div>
+
+<!-- Footer -->
+<footer class="site-footer">
+    <div class="footer-disclaimer">
+        <span class="disclaimer-icon">⚠️</span>
+        <p>
+            <strong>Ανεξάρτητος Κατάλογος.</strong>
+            Αυτός ο κατάλογος δημιουργήθηκε και συντηρείται από ιδιώτη χωρίς καμία σχέση, συνεργασία ή χορηγία
+            από την <strong>Parkside</strong>, τη <strong>Lidl</strong> ή οποιαδήποτε θυγατρική τους εταιρεία.
+            Όλα τα εμπορικά σήματα, λογότυπα και ονόματα προϊόντων ανήκουν στους αντίστοιχους κατόχους τους.
+            Οι τιμές και οι πληροφορίες ενδέχεται να μην είναι πάντα ενημερωμένες — πάντα επαληθεύετε στο κατάστημα.
+        </p>
+    </div>
+</footer>
 
 <script src="script.js"></script>
 </body>
