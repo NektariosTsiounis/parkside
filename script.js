@@ -220,8 +220,10 @@ const KNOWN_COUNTRIES = new Set(Object.keys(COUNTRY_FLAGS));
 
 /**
  * Parses a price history token.
- * Format: price_date_COUNTRY  (e.g. "79_17/5/26_GR")
- * Pops country and date from the END so they never appear twice.
+ * Format: price_date_COUNTRY  (e.g. "79.99_17/5/26_GR")
+ *
+ * Handles duplicates like "79.99_17/5/26_GR_GR" by popping ALL
+ * trailing country-code segments before extracting the date and price.
  */
 function parsePriceTag(raw) {
     raw = (raw || '').trim();
@@ -231,13 +233,15 @@ function parsePriceTag(raw) {
 
     const parts = raw.split('_');
 
-    // Pop country from the end (must be exactly a 2-letter known code)
+    // Pop ALL trailing country codes (handles duplicates: GR_GR, CY_CY, etc.)
     let country = '';
-    if (parts.length >= 1) {
+    while (parts.length >= 1) {
         const last = (parts[parts.length - 1] || '').trim().toUpperCase();
         if (KNOWN_COUNTRIES.has(last)) {
-            country = last;
-            parts.pop(); // remove it so it doesn't appear in price
+            country = last; // keep the last detected one
+            parts.pop();
+        } else {
+            break; // stop as soon as we hit a non-country segment
         }
     }
 
@@ -247,7 +251,7 @@ function parsePriceTag(raw) {
         const maybeDate = (parts[parts.length - 1] || '').trim();
         if (maybeDate.includes('/')) {
             date = maybeDate;
-            parts.pop(); // remove it so it doesn't appear in price
+            parts.pop();
         }
     }
 
