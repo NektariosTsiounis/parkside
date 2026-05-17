@@ -5,12 +5,13 @@
  * Data sources:
  *   Greek.csv     — Greek text: ID, Title, Description, Tech_Specs, Main_Cat, Second_Cat, Third_Cat, Forth_Cat
  *   English.csv   — English text: ID, Title_EN, Description_EN, Tech_Specs_EN, Main_Cat_EN, Second_Cat_EN, Third_Cat_EN, Forth_Cat_EN
- *   Parkside.csv  — Price/image/youtube/lidl data (existing catalog)
+ *   Parkside.csv  — Title[0] Price[1] Date[2] Desc[3] Specs[4] Image[5] MainCat[6] SecCat[7] ThirdCat[8] ForthCat[9] PriceHistory[10] LidlPlus[11] Youtube[12]
+ *                   NO ID column — row position (1-based) maps to Greek/English ID
  */
 
 $defaultImage = 'Media/Default/parkside.png';
 $products     = [];
-$sidebarMenu  = [];
+$sidebarMenu  = []; // [greek_main => ['_en'=>str, '_subs'=>[], '_en_subs'=>[], '_deepsubs'=>[], '_en_deepsubs'=>[]]]
 
 function parseRawPrice($raw) {
     $raw = trim($raw, " \t\n\r\0\x0B\"");
@@ -34,65 +35,100 @@ function formatDate($raw) {
     return $raw;
 }
 
+/**
+ * Resolve image reference from Parkside.csv col[5].
+ * That column stores a numeric row reference (1, 2, 9…) NOT a file path.
+ * Convention: Media/Products/<num>.webp  OR  Products/<num>.webp
+ */
 function resolveImage($raw, $default) {
     $raw = trim($raw, " \t\n\r\0\x0B\"");
     if (empty($raw)) return $default;
     if (strpos($raw, 'http://') === 0 || strpos($raw, 'https://') === 0) return $raw;
-    $path = 'Products/' . $raw . '.webp';
-    return file_exists($path) ? $path : $default;
+    // Numeric reference → look for image file
+    if (ctype_digit($raw)) {
+        $path = 'Media/Products/' . $raw . '.webp';
+        if (file_exists($path)) return $path;
+        $path = 'Products/' . $raw . '.webp';
+        if (file_exists($path)) return $path;
+        return $default;
+    }
+    // Explicit relative path
+    if (file_exists($raw)) return $raw;
+    $path = 'Media/Products/' . $raw . '.webp';
+    if (file_exists($path)) return $path;
+    return $default;
 }
 
-function readCsv($file) {
+/** Read Greek.csv / English.csv — keyed by integer ID (col 0) */
+function readIdCsv($file) {
     $rows = [];
     if (!file_exists($file)) return $rows;
     ini_set('auto_detect_line_endings', true);
     $h = fopen($file, 'r');
-    fgetcsv($h, 0, ',');
+    fgetcsv($h, 0, ','); // skip header (handles BOM too)
     while (($d = fgetcsv($h, 0, ',')) !== FALSE) {
-        $id = isset($d[0]) ? intval(trim($d[0], " \t\n\r\0\x0B\"")) : 0;
+        if (!isset($d[0])) continue;
+        $id = intval(trim($d[0], " \t\n\r\0\x0B\"\xEF\xBB\xBF"));
         if ($id > 0) $rows[$id] = $d;
     }
     fclose($h);
     return $rows;
 }
 
-$greekRows   = readCsv('Greek.csv');
-$englishRows = readCsv('English.csv');
-
-$catalogRows = [];
-$catalogFile = 'Parkside.csv';
-if (file_exists($catalogFile)) {
+/** Read Parkside.csv — NO ID column; 1-based row index maps to Greek/English ID */
+function readCatalogCsv($file) {
+    $rows = [];
+    if (!file_exists($file)) return $rows;
     ini_set('auto_detect_line_endings', true);
-    $h = fopen($catalogFile, 'r');
-    fgetcsv($h, 0, ',');
+    $h = fopen($file, 'r');
+    fgetcsv($h, 0, ','); // skip header
     $rowIdx = 1;
     while (($d = fgetcsv($h, 0, ',')) !== FALSE) {
-        if (empty($d) || !isset($d[0]) || empty(trim($d[0]))) { $rowIdx++; continue; }
-        $catalogRows[$rowIdx] = $d;
+        if (!empty($d) && isset($d[0]) && !empty(trim($d[0]))) {
+            $rows[$rowIdx] = $d;
+        }
         $rowIdx++;
     }
     fclose($h);
+    return $rows;
 }
 
+$greekRows   = readIdCsv('Greek.csv');
+$englishRows = readIdCsv('English.csv');
+$catalogRows = readCatalogCsv('Parkside.csv');
+
 foreach ($greekRows as $id => $gr) {
+    // Skip ghost rows with no title
+    $title = trim($gr[1] ?? '', " \t\n\r\0\x0B\"");
+    if (empty($title)) continue;
+
     $en  = $englishRows[$id] ?? [];
     $cat = $catalogRows[$id] ?? [];
 
-    $title   = trim($gr[1] ?? '', "\"");
     $desc    = trim($gr[2] ?? '', "\"");
     $specs   = trim($gr[3] ?? '', "\"");
+
+    // Greek categories
     $mainCat = !empty(trim($gr[4] ?? '')) ? trim($gr[4], " \t\n\r\0\x0B\"") : 'Γενικά';
     $secCat  = trim($gr[5] ?? '', " \t\n\r\0\x0B\"");
     $thrCat  = trim($gr[6] ?? '', " \t\n\r\0\x0B\"");
     $forCat  = trim($gr[7] ?? '', " \t\n\r\0\x0B\"");
 
+    // English categories
+    $mainCatEN = !empty(trim($en[4] ?? '')) ? trim($en[4], " \t\n\r\0\x0B\"") : 'General';
+    $secCatEN  = trim($en[5] ?? '', " \t\n\r\0\x0B\"");
+    $thrCatEN  = trim($en[6] ?? '', " \t\n\r\0\x0B\"");
+    $forCatEN  = trim($en[7] ?? '', " \t\n\r\0\x0B\"");
+
     $titleEN = trim($en[1] ?? '', "\"");
     $descEN  = trim($en[2] ?? '', "\"");
     $specsEN = trim($en[3] ?? '', "\"");
 
-    $rawPrice    = isset($cat[1]) ? trim($cat[1], " \t\n\r\0\x0B\"") : '0';
+    // Parkside.csv: Title[0] Price[1] Date[2] Desc[3] Specs[4] Image[5] ...
+    $rawPrice    = isset($cat[1]) ? trim($cat[1], " \t\n\r\0\x0B\"") : '';
     $parsed      = parseRawPrice($rawPrice);
-    $price       = $parsed['price'];
+    $price       = !empty($parsed['price']) ? $parsed['price'] : '0';
+
     $rawDate     = isset($cat[2]) ? trim($cat[2], " \t\n\r\0\x0B\"") : '';
     $displayDate = !empty($rawDate) ? formatDate($rawDate) : formatDate($parsed['date']);
 
@@ -107,7 +143,7 @@ foreach ($greekRows as $id => $gr) {
     if ($lidlRaw) {
         $firstEntry = explode('|', $lidlRaw)[0];
         if (strpos($firstEntry, '>') !== false) {
-            $sides = explode('>', $firstEntry, 2);
+            $sides    = explode('>', $firstEntry, 2);
             $lidlPart = explode('_', $sides[1])[0];
             $lidlCurrentPrice = trim($lidlPart);
         } else {
@@ -120,39 +156,58 @@ foreach ($greekRows as $id => $gr) {
     $activeFilterPrice = $jsLidlPrice ?? $jsPrice;
     $allCats           = array_values(array_filter([$mainCat, $secCat, $thrCat, $forCat]));
 
-    if (!isset($sidebarMenu[$mainCat])) $sidebarMenu[$mainCat] = ['_subs' => [], '_deepsubs' => []];
-    if (!empty($secCat) && !in_array($secCat, $sidebarMenu[$mainCat]['_subs']))
-        $sidebarMenu[$mainCat]['_subs'][] = $secCat;
+    // Build bilingual sidebar menu
+    if (!isset($sidebarMenu[$mainCat])) {
+        $sidebarMenu[$mainCat] = [
+            '_en'          => $mainCatEN,
+            '_subs'        => [],
+            '_en_subs'     => [],
+            '_deepsubs'    => [],
+            '_en_deepsubs' => [],
+        ];
+    }
     if (!empty($secCat)) {
-        if (!isset($sidebarMenu[$mainCat]['_deepsubs'][$secCat]))
-            $sidebarMenu[$mainCat]['_deepsubs'][$secCat] = [];
-        if (!empty($thrCat) && !in_array($thrCat, $sidebarMenu[$mainCat]['_deepsubs'][$secCat]))
-            $sidebarMenu[$mainCat]['_deepsubs'][$secCat][] = $thrCat;
-        if (!empty($forCat) && !in_array($forCat, $sidebarMenu[$mainCat]['_deepsubs'][$secCat]))
-            $sidebarMenu[$mainCat]['_deepsubs'][$secCat][] = $forCat;
+        if (!in_array($secCat, $sidebarMenu[$mainCat]['_subs'])) {
+            $sidebarMenu[$mainCat]['_subs'][]    = $secCat;
+            $sidebarMenu[$mainCat]['_en_subs'][] = !empty($secCatEN) ? $secCatEN : $secCat;
+        }
+        if (!isset($sidebarMenu[$mainCat]['_deepsubs'][$secCat])) {
+            $sidebarMenu[$mainCat]['_deepsubs'][$secCat]    = [];
+            $sidebarMenu[$mainCat]['_en_deepsubs'][$secCat] = [];
+        }
+        foreach ([[$thrCat, $thrCatEN], [$forCat, $forCatEN]] as [$deep, $deepEN]) {
+            if (!empty($deep) && !in_array($deep, $sidebarMenu[$mainCat]['_deepsubs'][$secCat])) {
+                $sidebarMenu[$mainCat]['_deepsubs'][$secCat][]    = $deep;
+                $sidebarMenu[$mainCat]['_en_deepsubs'][$secCat][] = !empty($deepEN) ? $deepEN : $deep;
+            }
+        }
     }
 
     $products[] = [
-        'title'           => $title,
-        'title_en'        => $titleEN,
-        'price'           => $price,
-        'date'            => $displayDate,
-        'description'     => $desc,
-        'description_en'  => $descEN,
-        'tech_specs'      => $specs,
-        'tech_specs_en'   => $specsEN,
-        'image'           => $finalImage,
-        'second_image'    => $secondImage,
-        'main_category'   => $mainCat,
-        'second_category' => $secCat,
-        'third_category'  => $thrCat,
-        'fourth_category' => $forCat,
-        'price_history'   => $priceHistory,
-        'lidl_plus'       => $lidlCurrentPrice,
-        'lidl_raw'        => $lidlRaw,
-        'youtube'         => $youtube,
-        'js_price'        => $activeFilterPrice,
-        'all_cats'        => $allCats,
+        'title'              => $title,
+        'title_en'           => $titleEN,
+        'price'              => $price,
+        'date'               => $displayDate,
+        'description'        => $desc,
+        'description_en'     => $descEN,
+        'tech_specs'         => $specs,
+        'tech_specs_en'      => $specsEN,
+        'image'              => $finalImage,
+        'second_image'       => $secondImage,
+        'main_category'      => $mainCat,
+        'main_category_en'   => $mainCatEN,
+        'second_category'    => $secCat,
+        'second_category_en' => $secCatEN,
+        'third_category'     => $thrCat,
+        'third_category_en'  => $thrCatEN,
+        'fourth_category'    => $forCat,
+        'fourth_category_en' => $forCatEN,
+        'price_history'      => $priceHistory,
+        'lidl_plus'          => $lidlCurrentPrice,
+        'lidl_raw'           => $lidlRaw,
+        'youtube'            => $youtube,
+        'js_price'           => $activeFilterPrice,
+        'all_cats'           => $allCats,
     ];
 }
 
@@ -191,33 +246,45 @@ ksort($sidebarMenu);
                     <span class="i18n" data-el="Όλα τα προϊόντα" data-en="All Products">Όλα τα προϊόντα</span>
                 </button>
                 <?php foreach ($sidebarMenu as $mainCatName => $catData): ?>
+                <?php $mainCatEN = $catData['_en'] ?? $mainCatName; ?>
                 <div class="menu-item-group">
-                    <button class="filter-btn main-cat-toggle"
+                    <button class="filter-btn main-cat-toggle i18n"
                         data-category="<?= htmlspecialchars($mainCatName) ?>"
-                        data-type="main">
+                        data-type="main"
+                        data-el="<?= htmlspecialchars($mainCatName) ?>"
+                        data-en="<?= htmlspecialchars($mainCatEN) ?>">
                         <?= htmlspecialchars($mainCatName) ?>
                         <?php if (!empty($catData['_subs'])): ?><span class="arrow">▼</span><?php endif; ?>
                     </button>
                     <?php if (!empty($catData['_subs'])): ?>
                     <div class="sub-menu">
-                        <?php foreach ($catData['_subs'] as $subName): ?>
-                        <?php $deepSubs = $catData['_deepsubs'][$subName] ?? []; ?>
+                        <?php foreach ($catData['_subs'] as $idx => $subName): ?>
+                        <?php
+                            $subEN    = $catData['_en_subs'][$idx] ?? $subName;
+                            $deepSubs = $catData['_deepsubs'][$subName] ?? [];
+                            $deepENs  = $catData['_en_deepsubs'][$subName] ?? [];
+                        ?>
                         <div class="sub-item-group">
-                            <button class="filter-btn sub-cat-btn"
+                            <button class="filter-btn sub-cat-btn i18n"
                                 data-parent="<?= htmlspecialchars($mainCatName) ?>"
                                 data-category="<?= htmlspecialchars($subName) ?>"
-                                data-type="second">
+                                data-type="second"
+                                data-el="<?= htmlspecialchars($subName) ?>"
+                                data-en="<?= htmlspecialchars($subEN) ?>">
                                 — <?= htmlspecialchars($subName) ?>
                                 <?php if (!empty($deepSubs)): ?><span class="arrow-deep">▼</span><?php endif; ?>
                             </button>
                             <?php if (!empty($deepSubs)): ?>
                             <div class="deep-sub-menu">
-                                <?php foreach ($deepSubs as $deepName): ?>
-                                <button class="filter-btn deep-cat-btn"
+                                <?php foreach ($deepSubs as $di => $deepName): ?>
+                                <?php $deepEN = $deepENs[$di] ?? $deepName; ?>
+                                <button class="filter-btn deep-cat-btn i18n"
                                     data-parent="<?= htmlspecialchars($mainCatName) ?>"
                                     data-second="<?= htmlspecialchars($subName) ?>"
                                     data-category="<?= htmlspecialchars($deepName) ?>"
-                                    data-type="deep">
+                                    data-type="deep"
+                                    data-el="<?= htmlspecialchars($deepName) ?>"
+                                    data-en="<?= htmlspecialchars($deepEN) ?>">
                                     &nbsp;&nbsp;· <?= htmlspecialchars($deepName) ?>
                                 </button>
                                 <?php endforeach; ?>
@@ -253,30 +320,36 @@ ksort($sidebarMenu);
             <?php foreach ($products as $product): ?>
             <article class="product-card"
                 data-category="<?= htmlspecialchars($product['main_category']) ?>"
+                data-category-en="<?= htmlspecialchars($product['main_category_en']) ?>"
                 data-second="<?= htmlspecialchars($product['second_category']) ?>"
+                data-second-en="<?= htmlspecialchars($product['second_category_en']) ?>"
                 data-third="<?= htmlspecialchars($product['third_category']) ?>"
                 data-fourth="<?= htmlspecialchars($product['fourth_category']) ?>"
                 data-all-categories="<?= htmlspecialchars(json_encode($product['all_cats'])) ?>"
                 data-price="<?= $product['js_price'] ?>"
                 data-product-json="<?= htmlspecialchars(json_encode([
-                    'title'           => $product['title'],
-                    'title_en'        => $product['title_en'],
-                    'price'           => $product['price'],
-                    'date'            => $product['date'],
-                    'description'     => $product['description'],
-                    'description_en'  => $product['description_en'],
-                    'tech_specs'      => $product['tech_specs'],
-                    'tech_specs_en'   => $product['tech_specs_en'],
-                    'image'           => $product['image'],
-                    'second_image'    => $product['second_image'],
-                    'main_category'   => $product['main_category'],
-                    'second_category' => $product['second_category'],
-                    'third_category'  => $product['third_category'],
-                    'fourth_category' => $product['fourth_category'],
-                    'price_history'   => $product['price_history'],
-                    'lidl_plus'       => $product['lidl_plus'],
-                    'lidl_raw'        => $product['lidl_raw'],
-                    'youtube'         => $product['youtube'],
+                    'title'              => $product['title'],
+                    'title_en'           => $product['title_en'],
+                    'price'              => $product['price'],
+                    'date'               => $product['date'],
+                    'description'        => $product['description'],
+                    'description_en'     => $product['description_en'],
+                    'tech_specs'         => $product['tech_specs'],
+                    'tech_specs_en'      => $product['tech_specs_en'],
+                    'image'              => $product['image'],
+                    'second_image'       => $product['second_image'],
+                    'main_category'      => $product['main_category'],
+                    'main_category_en'   => $product['main_category_en'],
+                    'second_category'    => $product['second_category'],
+                    'second_category_en' => $product['second_category_en'],
+                    'third_category'     => $product['third_category'],
+                    'third_category_en'  => $product['third_category_en'],
+                    'fourth_category'    => $product['fourth_category'],
+                    'fourth_category_en' => $product['fourth_category_en'],
+                    'price_history'      => $product['price_history'],
+                    'lidl_plus'          => $product['lidl_plus'],
+                    'lidl_raw'           => $product['lidl_raw'],
+                    'youtube'            => $product['youtube'],
                 ])) ?>">
 
                 <div class="card-img-holder">
