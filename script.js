@@ -10,6 +10,27 @@ const langToggle    = document.getElementById('langToggle');
 const langIcon      = document.getElementById('langIcon');
 const langText      = document.getElementById('langText');
 
+// ── Mobile sidebar drawer ────────────────────────────────────────────────────────────────────────
+const leftSidebar    = document.getElementById('leftSidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const mobileFilterBtn= document.getElementById('mobileFilterBtn');
+const sidebarCloseBtn= document.getElementById('sidebarCloseBtn');
+
+function openSidebar() {
+    leftSidebar.classList.add('open');
+    sidebarOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+    leftSidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+mobileFilterBtn.addEventListener('click', openSidebar);
+sidebarCloseBtn.addEventListener('click', closeSidebar);
+sidebarOverlay.addEventListener('click', closeSidebar);
+
 // ── Language ──────────────────────────────────────────────────────────────────────────────────────
 let currentLang = 'el';
 
@@ -132,7 +153,7 @@ searchInput.addEventListener('input', e => {
     }, 120);
 });
 
-// ── Sidebar ──────────────────────────────────────────────────────────────────────────────────────
+// ── Sidebar filter clicks — also close drawer on mobile after picking ───────────────────
 function closeAllSubMenus(except) {
     document.querySelectorAll('.sub-menu').forEach(sm => { if (sm !== except) sm.classList.remove('open'); });
     document.querySelectorAll('.arrow').forEach(a => a.classList.remove('rotated'));
@@ -151,6 +172,7 @@ function handleFilterClick(btn) {
         activeMainCategory = 'all'; activeSecondCategory = null; activeDeepCategory = null;
         btn.classList.add('active');
         closeAllSubMenus(null); closeAllDeepMenus(null);
+        closeSidebar();
     } else if (filterType === 'main') {
         activeMainCategory = category; activeSecondCategory = null; activeDeepCategory = null;
         btn.classList.add('active');
@@ -162,6 +184,8 @@ function handleFilterClick(btn) {
             if (subMenu) subMenu.classList.toggle('open');
             if (arrow)   arrow.classList.toggle('rotated');
         }
+        // Close drawer only if this category has no sub-items
+        if (!btn.querySelector('.arrow')) closeSidebar();
     } else if (filterType === 'second') {
         activeMainCategory   = btn.getAttribute('data-parent');
         activeSecondCategory = category; activeDeepCategory = null;
@@ -174,11 +198,13 @@ function handleFilterClick(btn) {
             if (deepMenu)  deepMenu.classList.toggle('open');
             if (arrowDeep) arrowDeep.classList.toggle('rotated');
         }
+        if (!btn.querySelector('.arrow-deep')) closeSidebar();
     } else if (filterType === 'deep') {
         activeMainCategory   = btn.getAttribute('data-parent');
         activeSecondCategory = btn.getAttribute('data-second');
         activeDeepCategory   = category;
         btn.classList.add('active');
+        closeSidebar();
     }
     scheduleFilter();
 }
@@ -216,15 +242,6 @@ function setModalImage(idx) {
     document.querySelectorAll('.modal-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
 }
 
-/**
- * Parses a price history token.
- * CSV format: "price_date_COUNTRY" — always exactly this order.
- *   parts[0] = price   e.g. "79.99"
- *   parts[1] = date    e.g. "17/5/26"
- *   parts[2] = country e.g. "GR" or "CY"  (use only the first unique value)
- *
- * Duplicate country codes (GR_GR) are handled by just reading parts[2] once.
- */
 function parsePriceTag(raw) {
     raw = (raw || '').trim();
     if (!raw) return '';

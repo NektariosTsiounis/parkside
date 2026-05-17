@@ -21,14 +21,17 @@ function cleanCell($v) {
     return trim($v ?? '', " \t\n\r\0\x0B\"");
 }
 
+/**
+ * Parse a date string from the CSV.
+ * Tries the two formats actually used (j/n/Y and d/m/Y).
+ * Falls back to returning the raw string unchanged.
+ */
 function formatDate($raw) {
     $raw = trim($raw);
     if (empty($raw)) return '';
-    foreach (['d/n/Y', 'n/d/Y', 'd/m/Y', 'j/n/Y', 'n/j/Y'] as $fmt) {
-        $d = DateTime::createFromFormat($fmt, $raw);
-        if ($d) return $d->format('d/m/Y');
-    }
-    return $raw;
+    $d = DateTime::createFromFormat('j/n/Y', $raw)
+      ?? DateTime::createFromFormat('d/m/Y', $raw);
+    return $d ? $d->format('d/m/Y') : $raw;
 }
 
 function resolveImage($rawName, $default) {
@@ -179,6 +182,10 @@ ksort($sidebarMenu);
         <div class="search-bar">
             <input type="text" id="searchInput" placeholder="Αναζήτηση προϊόντος...">
         </div>
+        <!-- Filters button: visible only on mobile -->
+        <button class="mobile-filter-btn" id="mobileFilterBtn" aria-label="Open filters">
+            &#9776; <span class="i18n" data-el="Φίλτρα" data-en="Filters">Φίλτρα</span>
+        </button>
         <button class="lang-toggle-btn" id="langToggle" aria-label="Switch language">
             <span id="langIcon">🇬🇧</span>
             <span id="langText">EN</span>
@@ -186,9 +193,17 @@ ksort($sidebarMenu);
     </div>
 </header>
 
+<!-- Overlay behind mobile sidebar -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
 <div class="full-screen-layout">
 
-    <aside class="left-sidebar">
+    <aside class="left-sidebar" id="leftSidebar">
+        <!-- Close button inside drawer (mobile only) -->
+        <div class="sidebar-close-btn">
+            <button id="sidebarCloseBtn" aria-label="Close filters">&times;</button>
+        </div>
+
         <div class="filter-panel">
             <h3 class="i18n" data-el="Κατηγορίες" data-en="Categories">Κατηγορίες</h3>
             <div class="menu-tree">
@@ -344,9 +359,7 @@ ksort($sidebarMenu);
     <div class="custom-modal-window">
         <button class="custom-modal-close" aria-label="Close">&times;</button>
 
-        <!-- Hero: image + title/price/history -->
         <div class="custom-modal-hero">
-            <!-- Image column -->
             <div class="custom-modal-img-col">
                 <div class="custom-modal-image-wrap">
                     <img id="modalImage" src="" alt="" loading="lazy">
@@ -357,7 +370,6 @@ ksort($sidebarMenu);
                 </div>
             </div>
 
-            <!-- Header info column -->
             <div class="custom-modal-header">
                 <div class="custom-modal-crumbs" id="modalBreadcrumbs"></div>
                 <h2 id="modalTitle"></h2>
@@ -367,13 +379,11 @@ ksort($sidebarMenu);
                     <p id="modalLidlBadge" class="l-plus-badge" style="display:none;">💳 Lidl Plus</p>
                 </div>
 
-                <!-- Price History inline -->
                 <div id="modalPriceHistory" class="modal-history-section" style="display:none;">
                     <h4 class="i18n" data-el="Ιστορικό Τιμών" data-en="Price History">Ιστορικό Τιμών</h4>
                     <div id="modalHistoryTags" class="modal-tags-container"></div>
                 </div>
 
-                <!-- Lidl+ History inline -->
                 <div id="modalLidlHistory" class="modal-history-section" style="display:none;">
                     <h4 class="i18n" data-el="💳 Ιστορικό Lidl Plus" data-en="💳 Lidl Plus History">💳 Ιστορικό Lidl Plus</h4>
                     <div id="modalLidlHistoryTags" class="modal-tags-container"></div>
@@ -381,17 +391,14 @@ ksort($sidebarMenu);
             </div>
         </div>
 
-        <!-- Body: description + specs + youtube -->
         <div class="custom-modal-body">
             <p id="modalDescription" class="modal-body-description"></p>
 
-            <!-- Tech Specs -->
             <div id="modalSpecs" class="modal-extra-section" style="display:none;">
                 <h4 class="i18n" data-el="Τεχνικά Χαρακτηριστικά" data-en="Technical Specifications">Τεχνικά Χαρακτηριστικά</h4>
                 <ul id="modalSpecsList"></ul>
             </div>
 
-            <!-- YouTube -->
             <div id="modalYoutube" class="modal-extra-section" style="display:none;">
                 <h4>Video</h4>
                 <a id="modalYoutubeLink" href="" target="_blank" rel="noopener"
