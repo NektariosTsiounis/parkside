@@ -236,9 +236,8 @@ function parsePriceTag(raw) {
 
     if (!price) return '';
 
-    const flag       = COUNTRY_FLAGS[country] || '';
     const dateHtml   = date    ? `<em class="ph-date">${date}</em>` : '';
-    const countryHtml= country ? `<em class="ph-country">${flag ? flag + '\u00a0' : ''}${country}</em>` : '';
+    const countryHtml= country ? `<em class="ph-country">${country}</em>` : '';
 
     return `<span class="ph-price">${price} €</span>${dateHtml}${countryHtml}`;
 }
