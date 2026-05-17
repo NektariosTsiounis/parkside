@@ -50,6 +50,7 @@ function applyLanguage(lang) {
     minPriceInput.placeholder = isEN ? 'From' : 'Από';
     maxPriceInput.placeholder = isEN ? 'To' : 'Έως';
 
+    // Plain-text i18n elements
     document.querySelectorAll('.i18n').forEach(el => {
         const txt = el.getAttribute(isEN ? 'data-en' : 'data-el');
         if (txt === null) return;
@@ -68,6 +69,12 @@ function applyLanguage(lang) {
                 }
             }
         }
+    });
+
+    // Rich-text i18n elements (footer notices with <strong> tags etc.)
+    document.querySelectorAll('.i18n-html').forEach(el => {
+        const html = el.getAttribute(isEN ? 'data-en' : 'data-el');
+        if (html !== null) el.innerHTML = html;
     });
 
     document.querySelectorAll('.product-card').forEach(card => {
@@ -158,7 +165,7 @@ searchInput.addEventListener('input', e => {
     }, 120);
 });
 
-// ── Sidebar filter clicks — also close drawer on mobile after picking ───────────────────
+// ── Sidebar filter clicks ────────────────────────────────────────────────────────────────────────────
 function closeAllSubMenus(except) {
     document.querySelectorAll('.sub-menu').forEach(sm => { if (sm !== except) sm.classList.remove('open'); });
     document.querySelectorAll('.arrow').forEach(a => a.classList.remove('rotated'));
@@ -189,7 +196,6 @@ function handleFilterClick(btn) {
             if (subMenu) subMenu.classList.toggle('open');
             if (arrow)   arrow.classList.toggle('rotated');
         }
-        // Close drawer only if this category has no sub-items
         if (!btn.querySelector('.arrow')) closeSidebar();
     } else if (filterType === 'second') {
         activeMainCategory   = btn.getAttribute('data-parent');
