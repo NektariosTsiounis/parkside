@@ -214,58 +214,29 @@ function setModalImage(idx) {
     document.querySelectorAll('.modal-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
 }
 
-// Country code → flag emoji map
-const COUNTRY_FLAGS = { GR: '🇬🇷', CY: '🇨🇾', DE: '🇩🇪', AT: '🇦🇹', NL: '🇳🇱', BE: '🇧🇪', PL: '🇵🇱' };
-const KNOWN_COUNTRIES = new Set(Object.keys(COUNTRY_FLAGS));
-
 /**
  * Parses a price history token.
- * Format: price_date_COUNTRY  (e.g. "79.99_17/5/26_GR")
+ * CSV format: "price_date_..." — we only ever want parts[0] (price) and parts[1] (date).
+ * Anything after index 1 (country codes like GR, CY, duplicates, etc.) is ignored.
  *
- * Handles duplicates like "79.99_17/5/26_GR_GR" by popping ALL
- * trailing country-code segments before extracting the date and price.
+ * Examples:
+ *   "79.99_17/5/26_GR"     → 79.99 €  17/5/26
+ *   "79.99_17/5/26_GR_GR"  → 79.99 €  17/5/26
+ *   "69.99_17/5/26_CY"     → 69.99 €  17/5/26
+ *   "79.99_17/5/26"        → 79.99 €  17/5/26
  */
 function parsePriceTag(raw) {
     raw = (raw || '').trim();
     if (!raw) return '';
-    // Strip legacy "date>" prefix if present
-    if (raw.includes('>')) raw = raw.split('>').pop().trim();
 
     const parts = raw.split('_');
+    const price = (parts[0] || '').trim();
+    const date  = (parts[1] || '').trim();
 
-    // Pop ALL trailing country codes (handles duplicates: GR_GR, CY_CY, etc.)
-    let country = '';
-    while (parts.length >= 1) {
-        const last = (parts[parts.length - 1] || '').trim().toUpperCase();
-        if (KNOWN_COUNTRIES.has(last)) {
-            country = last; // keep the last detected one
-            parts.pop();
-        } else {
-            break; // stop as soon as we hit a non-country segment
-        }
-    }
-
-    // Pop date from the new end (contains a /)
-    let date = '';
-    if (parts.length >= 1) {
-        const maybeDate = (parts[parts.length - 1] || '').trim();
-        if (maybeDate.includes('/')) {
-            date = maybeDate;
-            parts.pop();
-        }
-    }
-
-    // Everything remaining is the price
-    const price = parts.join('_').trim();
     if (!price) return '';
 
-    const flag = country && COUNTRY_FLAGS[country] ? COUNTRY_FLAGS[country] : '';
-    const countryHtml = country
-        ? `<em class="ph-country">${flag ? flag + '\u00a0' : ''}${country}</em>`
-        : '';
-    const dateHtml = date ? `<em class="ph-date">${date}</em>` : '';
-
-    return `<span class="ph-price">${price} €</span>${dateHtml}${countryHtml}`;
+    const dateHtml  = date  ? `<em class="ph-date">${date}</em>`   : '';
+    return `<span class="ph-price">${price} €</span>${dateHtml}`;
 }
 
 function openModal(card) {
