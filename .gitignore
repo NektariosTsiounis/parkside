@@ -1,0 +1,8 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup Excel files or temp files
+~$*.xlsx
+*.tmp
+*.log
