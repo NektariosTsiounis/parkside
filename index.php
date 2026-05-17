@@ -38,24 +38,34 @@ function formatDate($raw) {
 /**
  * Resolve image reference from Parkside.csv col[5].
  * That column stores a numeric row reference (1, 2, 9…) NOT a file path.
- * Convention: Media/Products/<num>.webp  OR  Products/<num>.webp
+ * Images are stored in Products/<num>.webp (root-level Products folder).
+ * Falls back to Media/Products/<num>.webp for legacy support.
  */
 function resolveImage($raw, $default) {
     $raw = trim($raw, " \t\n\r\0\x0B\"");
     if (empty($raw)) return $default;
     if (strpos($raw, 'http://') === 0 || strpos($raw, 'https://') === 0) return $raw;
-    // Numeric reference → look for image file
+    // Numeric reference → look for image file in Products/ first
     if (ctype_digit($raw)) {
-        $path = 'Media/Products/' . $raw . '.webp';
-        if (file_exists($path)) return $path;
-        $path = 'Products/' . $raw . '.webp';
-        if (file_exists($path)) return $path;
+        // Primary location: Products/<num>.webp
+        foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
+            $path = 'Products/' . $raw . '.' . $ext;
+            if (file_exists($path)) return $path;
+        }
+        // Legacy fallback: Media/Products/<num>.webp
+        foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
+            $path = 'Media/Products/' . $raw . '.' . $ext;
+            if (file_exists($path)) return $path;
+        }
         return $default;
     }
-    // Explicit relative path
+    // Explicit relative path — try as-is first
     if (file_exists($raw)) return $raw;
-    $path = 'Media/Products/' . $raw . '.webp';
-    if (file_exists($path)) return $path;
+    // Try Products/ prefix
+    foreach (['webp', 'jpg', 'jpeg', 'png'] as $ext) {
+        $path = 'Products/' . $raw . '.' . $ext;
+        if (file_exists($path)) return $path;
+    }
     return $default;
 }
 
