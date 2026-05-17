@@ -4,25 +4,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const productGrid = document.getElementById('productsGrid');
     const modal = document.getElementById('productModal');
     const modalClose = document.querySelector('.custom-modal-close');
-    
+
     const minPriceInput = document.getElementById('minPrice');
     const maxPriceInput = document.getElementById('maxPrice');
 
     let activeMainCategory = 'all';
     let activeSecondCategory = null;
+    let activeDeepCategory = null;   // third or fourth category filter
     let searchQuery = '';
     let minPrice = 0;
     let maxPrice = Infinity;
     let searchTimeout;
 
-    // Fast memory lookups
+    // Build fast lookup map
     const productCardsMap = new Map();
     document.querySelectorAll('.product-card').forEach(card => {
         const title = card.querySelector('.card-product-title').textContent.toLowerCase();
         const price = parseFloat(card.getAttribute('data-price')) || 0;
+        let allCats = [];
+        try { allCats = JSON.parse(card.getAttribute('data-all-categories') || '[]'); } catch(e) {}
         productCardsMap.set(card, {
-            mainCategory: card.getAttribute('data-category'),
+            mainCategory:   card.getAttribute('data-category'),
             secondCategory: card.getAttribute('data-second'),
+            thirdCategory:  card.getAttribute('data-third'),
+            fourthCategory: card.getAttribute('data-fourth'),
+            allCategories:  allCats,
             titleLower: title,
             price: price,
             element: card
@@ -31,16 +37,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function filterProducts() {
         productCardsMap.forEach((data, card) => {
-            const matchesMainCategory = (activeMainCategory === 'all' || data.mainCategory === activeMainCategory);
-            const matchesSecondCategory = (!activeSecondCategory || data.secondCategory === activeSecondCategory);
-            const matchesSearch = searchQuery === '' || data.titleLower.includes(searchQuery);
-            const matchesPrice = data.price >= minPrice && data.price <= maxPrice;
+            const matchesMain   = (activeMainCategory === 'all' || data.mainCategory === activeMainCategory);
+            const matchesSecond = (!activeSecondCategory || data.secondCategory === activeSecondCategory);
+            // Deep filter: match third OR fourth category
+            const matchesDeep   = (!activeDeepCategory || data.thirdCategory === activeDeepCategory || data.fourthCategory === activeDeepCategory);
+            const matchesSearch = (searchQuery === '' || data.titleLower.includes(searchQuery));
+            const matchesPrice  = (data.price >= minPrice && data.price <= maxPrice);
 
-            if (matchesMainCategory && matchesSecondCategory && matchesSearch && matchesPrice) {
-                card.style.display = 'flex';
-            } else {
-                card.style.display = 'none';
-            }
+            card.style.display = (matchesMain && matchesSecond && matchesDeep && matchesSearch && matchesPrice) ? 'flex' : 'none';
         });
     }
 
@@ -59,50 +63,72 @@ document.addEventListener('DOMContentLoaded', () => {
         searchTimeout = setTimeout(filterProducts, 150);
     });
 
+    function closeAllSubMenus(exceptSubMenu) {
+        document.querySelectorAll('.sub-menu').forEach(sm => {
+            if (sm !== exceptSubMenu) sm.classList.remove('open');
+        });
+        document.querySelectorAll('.arrow').forEach(a => a.classList.remove('rotated'));
+    }
+
+    function closeAllDeepMenus(exceptDeep) {
+        document.querySelectorAll('.deep-sub-menu').forEach(dm => {
+            if (dm !== exceptDeep) dm.classList.remove('open');
+        });
+        document.querySelectorAll('.arrow-deep').forEach(a => a.classList.remove('rotated'));
+    }
+
     function handleFilterClick(btn) {
         const filterType = btn.getAttribute('data-type');
-        const category = btn.getAttribute('data-category');
+        const category   = btn.getAttribute('data-category');
+
+        filterButtons.forEach(b => b.classList.remove('active'));
 
         if (category === 'all') {
-            activeMainCategory = 'all';
+            activeMainCategory  = 'all';
             activeSecondCategory = null;
-            filterButtons.forEach(b => b.classList.remove('active'));
+            activeDeepCategory   = null;
             btn.classList.add('active');
-            document.querySelectorAll('.sub-menu').forEach(sm => sm.classList.remove('open'));
-            document.querySelectorAll('.arrow').forEach(a => a.classList.remove('rotated'));
-        } 
+            closeAllSubMenus(null);
+            closeAllDeepMenus(null);
+        }
         else if (filterType === 'main') {
-            activeMainCategory = category;
+            activeMainCategory   = category;
             activeSecondCategory = null;
-
-            filterButtons.forEach(b => b.classList.remove('active'));
+            activeDeepCategory   = null;
             btn.classList.add('active');
 
             const menuGroup = btn.closest('.menu-item-group');
             if (menuGroup) {
                 const subMenu = menuGroup.querySelector('.sub-menu');
-                const arrow = btn.querySelector('.arrow');
-                
-                document.querySelectorAll('.sub-menu').forEach(sm => {
-                    if(sm !== subMenu) sm.classList.remove('open');
-                });
-                document.querySelectorAll('.arrow').forEach(a => {
-                    if(a !== arrow) a.classList.remove('rotated');
-                });
-
+                const arrow   = btn.querySelector('.arrow');
+                closeAllSubMenus(subMenu);
+                closeAllDeepMenus(null);
                 if (subMenu) subMenu.classList.toggle('open');
-                if (arrow) arrow.classList.toggle('rotated');
+                if (arrow)   arrow.classList.toggle('rotated');
             }
-        } else if (filterType === 'second') {
+        }
+        else if (filterType === 'second') {
             const parent = btn.getAttribute('data-parent');
-            activeMainCategory = parent;
+            activeMainCategory   = parent;
             activeSecondCategory = category;
+            activeDeepCategory   = null;
+            btn.classList.add('active');
 
-            filterButtons.forEach(b => {
-                if(b.getAttribute('data-type') === 'second' || b.getAttribute('data-category') === 'all') {
-                    b.classList.remove('active');
-                }
-            });
+            const subItemGroup = btn.closest('.sub-item-group');
+            if (subItemGroup) {
+                const deepMenu  = subItemGroup.querySelector('.deep-sub-menu');
+                const arrowDeep = btn.querySelector('.arrow-deep');
+                closeAllDeepMenus(deepMenu);
+                if (deepMenu)   deepMenu.classList.toggle('open');
+                if (arrowDeep)  arrowDeep.classList.toggle('rotated');
+            }
+        }
+        else if (filterType === 'deep') {
+            const parent = btn.getAttribute('data-parent');
+            const second = btn.getAttribute('data-second');
+            activeMainCategory   = parent;
+            activeSecondCategory = second;
+            activeDeepCategory   = category;
             btn.classList.add('active');
         }
 
@@ -119,12 +145,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openProductModal(product) {
         document.getElementById('modalImage').src = product.image;
-        let breadcrumbs = product.main_category;
-        if (product.second_category) breadcrumbs += ` › ${product.second_category}`;
-        document.getElementById('modalBreadcrumbs').textContent = breadcrumbs;
+
+        // Build breadcrumbs from all available categories
+        const crumbParts = [product.main_category, product.second_category, product.third_category, product.fourth_category].filter(Boolean);
+        document.getElementById('modalBreadcrumbs').textContent = crumbParts.join(' › ');
+
         document.getElementById('modalTitle').textContent = product.title;
 
-        const modalPriceEl = document.getElementById('modalPrice');
+        const modalPriceEl  = document.getElementById('modalPrice');
         const modalLidlBadge = document.getElementById('modalLidlBadge');
         if (product.lidl_plus) {
             modalPriceEl.innerHTML = `<span class="was-price">${product.price} €</span> <span class="now-price">${product.lidl_plus} €</span>`;
